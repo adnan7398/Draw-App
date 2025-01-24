@@ -2,19 +2,26 @@ import express from "express";
 import Jwt from "jsonwebtoken";
 import {JWT_SECRET}  from "@repo/backend-common/config"
 import {CreateUserSchema,SigninSchema,CreateRoomSchema} from "@repo/common/types"
+import {prismaClient} from "@repo/db/client"
+import { parse } from "path";
 const app = express();
 
 
-app.post("/signup",(req,res)=>{
-    const data = CreateUserSchema.safeParse(req.body)
-    if(!data.success){
+app.post("/signup",async(req,res)=>{
+    const parsedData = CreateUserSchema.safeParse(req.body)
+    if(!parsedData.success){
          res.json({
             message:"Incorrect Input"
         })
         return ;
     }
-    res.json({
-        userId :"123"
+    await prismaClient.user.create({
+        data:{
+            email:parsedData.data?.email,
+            password:parsedData.data.password,
+            name:parsedData.data.name,
+            photo:parsedData.data.photo||"",
+        }
     })
 })
 
