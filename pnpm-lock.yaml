@@ -23,24 +23,18 @@ importers:
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.0
-<<<<<<< HEAD
       '@types/jsonwebtoken':
         specifier: ^9.0.7
         version: 9.0.7
-=======
->>>>>>> e30e8f9 (added)
       '@types/ws':
         specifier: ^8.5.13
         version: 8.5.13
       express:
         specifier: ^4.21.2
         version: 4.21.2
-<<<<<<< HEAD
-=======
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.2
->>>>>>> e30e8f9 (added)
       ws:
         specifier: ^8.18.0
         version: 8.18.0
@@ -57,12 +51,6 @@ importers:
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
-<<<<<<< HEAD
-=======
-      '@types/jsonwebtoken':
-        specifier: ^9.0.7
-        version: 9.0.7
->>>>>>> e30e8f9 (added)
 
   apps/web:
     dependencies:
@@ -100,6 +88,9 @@ importers:
 
   apps/ws-backend:
     dependencies:
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@types/jsonwebtoken':
         specifier: ^9.0.7
         version: 9.0.7
