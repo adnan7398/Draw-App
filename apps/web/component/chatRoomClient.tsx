@@ -11,7 +11,7 @@ export function ChatRoomClient({
     id:string
 }){
     const [Chats,setChats] = useState(messages)
-    const [currentMessages,setcurrentMessages]  = useState("");
+    const [currentMessages,setcurrentMessages]  = useState(""); 
     const {socket,loading} = useSocket();
 
     useEffect(()=>{
@@ -23,7 +23,7 @@ export function ChatRoomClient({
             socket.onmessage=(event)=>{
                 const parsedData = JSON.parse(event.data)
                 if(parsedData.type==="chat"){
-                    setChats(c => [...c, { message: parsedData.message }]);
+                    setChats(c => [...c, { message: parsedData.messages }]);
                 }
         }
         
