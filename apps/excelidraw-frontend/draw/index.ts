@@ -1,3 +1,4 @@
+import { BACKEND_URL } from "@/config";
 import axios from "axios";
 type Shape = {
     type:"rect";
@@ -11,13 +12,14 @@ type Shape = {
     centerY : number;
     radius:number
 }
-export default function initDraw(canvas:HTMLCanvasElement){
+export async   function initDraw(canvas:HTMLCanvasElement,roomId:string){
 
     const context = canvas.getContext("2d");
-    let existingShapes :Shape[] = [];
+    let existingShapes :Shape[] = await getExistingShapes(roomId);
             if(!context){
                 return ;
             }
+            Clearcanvas(existingShapes,canvas,context);
             let clicked = false;
             let startX = 0;
             let startY = 0;
@@ -64,6 +66,13 @@ function Clearcanvas(existingShapes:Shape[],canvas:HTMLCanvasElement,context:Can
     });
 }
 
-function getExistingShapes(){
-    axios.get("`{}`")
+ async function getExistingShapes(roomId:string){
+    const res = await axios.get(`${BACKEND_URL}/chats/${roomId}`);
+    const messages = res.data.messages;
+    const shapes = messages.map((x:{message:string})=>{
+        const messageData = JSON.parse(x.message)
+        return messageData;
+    });
+    return shapes;
+    
 }
