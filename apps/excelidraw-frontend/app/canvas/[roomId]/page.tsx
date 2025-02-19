@@ -1,16 +1,18 @@
+ 
+"use client"
+import initDraw from "@/draw";
 import { useEffect ,useRef} from "react"
 
-
-
-
-export default function (){
-    const canvasRef = useRef(null);
+export default function Canvas (){
+    const canvasRef = useRef<HTMLCanvasElement>(null);
     useEffect(()=>{
-
-    })
+        if(canvasRef.current){
+            const canvas = canvasRef.current;
+            initDraw(canvas);
+        }
+    },[canvasRef])
     return <div>
-        drawings page
-        <canvas ref= {canvasRef}></canvas>
+        <canvas height= {2000}  width={2000} ref= {canvasRef}></canvas>
     </div>
 
 }
