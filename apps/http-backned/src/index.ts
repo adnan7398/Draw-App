@@ -69,6 +69,7 @@ app.post("/signin",async(req,res)=>{
 
 app.post("/room",Middleware,async(req,res)=>{
     const parsedData = CreateRoomSchema.safeParse(req.body);
+    console.log(parsedData);
     
     if(!parsedData.success){
         console.log(parsedData.error);

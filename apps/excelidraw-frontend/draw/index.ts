@@ -55,7 +55,7 @@ export async   function initDraw(canvas:HTMLCanvasElement,roomId:string,socket:W
                     message:JSON.stringify({
                         shape
                     }),
-                    roomId
+                   // roomId
                 }))
                  
             })
