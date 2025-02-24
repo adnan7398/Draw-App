@@ -18,8 +18,7 @@ type Shape = {
     startY: number;
     endX: number;
     endY: number;
-}
-
+};
 export class Game {
 
     private canvas: HTMLCanvasElement;
@@ -156,7 +155,7 @@ export class Game {
                 this.ctx.beginPath();
                 this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
                 this.ctx.stroke();
-                this.ctx.closePath();                
+                this.ctx.closePath();              
             }
         }
     }
