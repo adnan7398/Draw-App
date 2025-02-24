@@ -1,14 +1,29 @@
 "use client"
 import React, { useState } from 'react';
-import { PenTool, Mail, Lock } from 'lucide-react';
+import { PenTool, Mail, Lock, Router } from 'lucide-react';
+import { BACKEND_URL } from '@/config';
+import axios from 'axios';
+import {useRouter }from 'next/navigation';
 
 function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [Loading ,setLoading]  = useState(false);
+  const Router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle sign in logic here
+    setLoading(true);
+
+    try {
+      const res = await axios.post(`${BACKEND_URL}/signin`);
+      alert("you are  successfully singend in !");
+      Router.push(`${BACKEND_URL}/canvas/`);
+    } catch (error: any) {
+      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

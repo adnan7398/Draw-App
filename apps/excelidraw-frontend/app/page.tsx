@@ -1,7 +1,10 @@
+"use client"
 import React from 'react';
-import { Github, Twitter, Heart, Share2, Lock, Users2, Sparkles, PenTool } from 'lucide-react';
+import { Github, Twitter, Heart, Share2, Lock, Users2, Sparkles, PenTool, Router } from 'lucide-react';
+import { useRouter } from "next/navigation";
 
 function App() {
+  const Router = useRouter();
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -34,8 +37,10 @@ function App() {
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               ExcileDraw is a virtual whiteboard that lets you easily sketch diagrams that have a hand-drawn feel to them.
             </p>
-            <button className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
-              Start Drawing
+            <button  onClick = {()=>{
+              Router.push("/signup");
+            }} className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
+              Start Drawing...
             </button>
           </div>
 

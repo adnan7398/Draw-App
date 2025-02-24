@@ -1,17 +1,31 @@
 "use client"
+import axios from 'axios';
 import React, { useState } from 'react';
 import { PenTool, Mail, Lock, User } from 'lucide-react';
+import { BACKEND_URL } from '@/config';
+import { useRouter } from 'next/navigation';
 
 function SignUp() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [Loading,setLoading]  = useState(false);
+  const Router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle sign up logic here
-  };
+    setLoading(true);
 
+    try {
+      const res = await axios.post(`${BACKEND_URL}/signup`);
+      alert("Signup successful!");
+      Router.push("/signin");
+    } catch (error: any) {
+      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -47,7 +61,7 @@ function SignUp() {
                   autoComplete="name"
                   required
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  placeholder="John Doe"
+                  placeholder="Enter your name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
