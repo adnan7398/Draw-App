@@ -84,24 +84,31 @@ export class Game {
                 this.ctx.strokeStyle = "rgba(255, 255, 255)"
                 this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
             } else if (shape.type === "circle") {
-                console.log(shape);
                 this.ctx.beginPath();
                 this.ctx.arc(shape.centerX, shape.centerY, Math.abs(shape.radius), 0, Math.PI * 2);
                 this.ctx.stroke();
                 this.ctx.closePath();                
+            }else if (shape.type==="pencil"){
+                this.ctx.moveTo(shape.startX,shape.startY);
+                this.ctx.lineTo(shape.endX,shape.endY);
+                this.ctx.stroke();
+                this.ctx.closePath();
             }
         })
     }
-
+    //@ts-ignore
     mouseDownHandler = (e) => {
         this.clicked = true
         this.startX = e.clientX
         this.startY = e.clientY
     }
+    //@ts-ignore
     mouseUpHandler = (e) => {
         this.clicked = false
         const width = e.clientX - this.startX;
         const height = e.clientY - this.startY;
+        const endX = e.clientX - this.startX;
+        const endY = e.clientY - this.startY;
 
         const selectedTool = this.selectedTool;
         let shape: Shape | null = null;
@@ -122,6 +129,14 @@ export class Game {
                 centerX: this.startX + radius,
                 centerY: this.startY + radius,
             }
+        }else if(selectedTool==="pencil"){
+            shape = {
+                type :"pencil",
+                startX :this.startX,
+                startY:this.startY,
+                endX,
+                endY
+            }
         }
 
         if (!shape) {
@@ -138,6 +153,7 @@ export class Game {
             roomId: this.roomId
         }))
     }
+    //@ts-ignore
     mouseMoveHandler = (e) => {
         if (this.clicked) {
             const width = e.clientX - this.startX;
