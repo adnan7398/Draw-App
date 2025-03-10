@@ -4,6 +4,7 @@ import { PenTool, Mail, Lock, Router } from 'lucide-react';
 import { BACKEND_URL } from '@/config';
 import axios from 'axios';
 import {useRouter }from 'next/navigation';
+import { ROOM_URL } from '@/config';
 
 function SignIn() {
   const [email, setEmail] = useState('');
@@ -18,7 +19,7 @@ function SignIn() {
     try {
       const res = await axios.post(`${BACKEND_URL}/signin`);
       alert("you are  successfully singend in !");
-      Router.push(`${BACKEND_URL}/canvas/`);
+      Router.push(`${ROOM_URL}`);
     } catch (error: any) {
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     } finally {
@@ -27,7 +28,7 @@ function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <PenTool className="h-12 w-12 text-blue-600" />
@@ -44,7 +45,7 @@ function SignIn() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-purple-100 py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
