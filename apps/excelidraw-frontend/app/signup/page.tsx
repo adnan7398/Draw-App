@@ -10,7 +10,7 @@ function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [Loading,setLoading]  = useState(false);
-  const Router = useRouter();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,11 +18,13 @@ function SignUp() {
 
     try {
       const res = await axios.post(`${BACKEND_URL}/signup`,{
-        name,
         email,
-        password
+        password,
+        name
       })
-            Router.push("/signin");
+      console.log(res.data);
+      alert("You are successfully signed up!");
+      router.push(`/signin`);
     } catch (error: any) {
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     } finally {
