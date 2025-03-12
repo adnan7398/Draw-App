@@ -62,9 +62,9 @@ app.post("/signin",async(req,res)=>{
     const token  = Jwt.sign({
         userId :user?.id
     },JWT_SECRET);
-    res.json({
-        token
-    })
+   res.json({   
+       token 
+   })
 })
 
 app.post("/room",Middleware,async(req,res)=>{

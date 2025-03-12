@@ -1,25 +1,34 @@
-"use client"
-import React, { useState } from 'react';
-import { PenTool, Mail, Lock, Router } from 'lucide-react';
-import { BACKEND_URL } from '@/config';
-import axios from 'axios';
-import {useRouter }from 'next/navigation';
-import { ROOM_URL } from '@/config';
+"use client";
+import React, { useState } from "react";
+import { PenTool, Mail, Lock } from "lucide-react";
+import { BACKEND_URL } from "@/config";
+import axios from "axios";
+import { useRouter } from "next/navigation";
 
 function SignIn() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [Loading ,setLoading]  = useState(false);
-  const Router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter(); 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/signin`);
-      alert("you are  successfully singend in !");
-      Router.push(`/room`);
+      const res = await axios.post(`${BACKEND_URL}/signin`, {
+        email,
+        password,
+      });
+
+      const token = res.data.token; // Extract token from response
+      if (!token) {
+        throw new Error("Token not received from server.");
+      }
+
+      localStorage.setItem("authToken", token);
+      alert("You are successfully signed in!");
+      router.push(`/room`);
     } catch (error: any) {
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     } finally {
@@ -37,7 +46,7 @@ function SignIn() {
           Sign in to ExcileDraw
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
+          Or{" "}
           <a href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
             create a new account
           </a>
@@ -115,8 +124,9 @@ function SignIn() {
               <button
                 type="submit"
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={loading}
               >
-                Sign in
+                {loading ? "Signing in..." : "Sign in"}
               </button>
             </div>
           </form>

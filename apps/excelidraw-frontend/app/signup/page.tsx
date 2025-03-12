@@ -17,9 +17,12 @@ function SignUp() {
     setLoading(true);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/signup`);
-      alert("Signup successful!");
-      Router.push("/signin");
+      const res = await axios.post(`${BACKEND_URL}/signup`,{
+        name,
+        email,
+        password
+      })
+            Router.push("/signin");
     } catch (error: any) {
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     } finally {
