@@ -68,9 +68,7 @@ app.post("/signin",async(req,res)=>{
 })
 
 app.post("/room",Middleware,async(req,res)=>{
-    const parsedData = CreateRoomSchema.safeParse(req.body);
-    console.log(parsedData);
-    
+    const parsedData = CreateRoomSchema.safeParse(req.body); 
     if(!parsedData.success){
         console.log(parsedData.error);
         res.json({  
@@ -105,7 +103,7 @@ app.get("/chats/:roomId",async (req,res)=>{
        orderBy:{
             id:"desc"
        },
-       take:50
+       take:500
     })
     res.json({
         messages
