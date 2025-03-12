@@ -20,13 +20,12 @@ function SignIn() {
         email,
         password,
       });
-
       const token = res.data.token; // Extract token from response
+      localStorage.setItem("authToken", token);
       if (!token) {
         throw new Error("Token not received from server.");
       }
-
-      localStorage.setItem("authToken", token);
+  
       alert("You are successfully signed in!");
       router.push(`/room`);
     } catch (error: any) {
