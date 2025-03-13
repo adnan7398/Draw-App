@@ -132,7 +132,7 @@ app.get("/room/:slug", async (req, res) => {
     });
 
     res.json({
-        room
+        id:room?.id
     })
 })
 app.listen(3002);

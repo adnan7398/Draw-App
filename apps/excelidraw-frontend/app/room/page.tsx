@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from 'react';
-import { BACKEND_URL, ROOM_URL } from '@/config';
+import { BACKEND_URL, EXCILE_URL, ROOM_URL } from '@/config';
 import  {useRouter}from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import axios from 'axios';
@@ -11,6 +11,7 @@ function Home() {
     const [Loading,setLoading]  = useState(false);
     const [roomId, setRoomId] = useState('');
     const [error, setError] = useState('');
+    const [slug,setSlug] = useState('');
 
   const  createRoom =  async (e) => {
     try {
@@ -30,6 +31,7 @@ function Home() {
             },
           }
         );
+        console.log(res.data.room);
       } catch (error: any) {
         alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
       } finally {
@@ -38,13 +40,23 @@ function Home() {
     };
     
 
-  const joinRoom = (e: React.FormEvent) => {
+  const joinRoom = async (e:React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!roomId.trim()) {
-      setError('Please enter a room ID');
-      return;
+
+        if (!slug) {
+            alert("Please enter room name");
+            return;
+        }
+    try{
+        const res  = await axios.get(`${BACKEND_URL}/room/${slug}`);
+        const roomId = res.data.roomId; 
+        console.log("Room Successfully joined",res.data);
+        Router.push(`${EXCILE_URL}/${roomId}`);
+    }catch(error: any){
+      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     }
-  };
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -88,9 +100,8 @@ function Home() {
               </label>
               <input
                 type="text"
-                id="roomId"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
                 placeholder="Enter Room ID"
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               />
