@@ -6,6 +6,7 @@ import {prismaClient} from "@repo/db/client"
 import { parse } from "path";
 import { Middleware } from "./middleware";
 import cors from "cors";
+import bcrypt from "bcrypt";
 const app = express();
 app.use(cors())
 app.use(express.json());
@@ -21,12 +22,16 @@ app.post("/signup",async(req,res)=>{
         })
         return ;
     }
+    const email  = parsedData.data.email;
+    const password = parsedData.data.password;  
+    const name = parsedData.data.name;
     try {
+        const hashPassword = await bcrypt.hash(password,10);
         const user = await prismaClient.user.create({
             data:{
-                email:parsedData.data?.email,
-                password:parsedData.data.password,
-                name:parsedData.data.name,
+                email:email,
+                password:hashPassword,
+                name:name,
             }
         })
         res.json({
@@ -47,10 +52,11 @@ app.post("/signin",async(req,res)=>{
         })
         return ;
     }
+    const email= parsedData.data.email 
+    const password = parsedData.data.password;
     const user = await prismaClient.user.findFirst({
         where:{
-            email:parsedData.data.email,
-            password:parsedData.data.password
+            email:email,
         }
     })
     if(!user){
@@ -59,6 +65,14 @@ app.post("/signin",async(req,res)=>{
         })
         return 
     }
+    const comparepassword = await bcrypt.compare(password,user.password);
+    if(!comparepassword){
+        res.status(403).json({
+            message:"Not Authorized,....."
+        })
+        return
+    }
+
     const token  = Jwt.sign({
         userId :user?.id
     },JWT_SECRET);
