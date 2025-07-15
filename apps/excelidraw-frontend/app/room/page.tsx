@@ -33,6 +33,9 @@ function Home() {
         );
         const roomId = res.data.roomId; 
         console.log(res.data.room);
+        setRoomId(roomId);
+        alert(`Room created successfully! Room ID: ${roomId}`);
+        Router.push(`${EXCILE_URL}/${roomId}`);
       } catch (error: any) {
         alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
       } finally {
@@ -49,7 +52,7 @@ function Home() {
             return;
         }
     try{
-        const res  = await axios.get(`${BACKEND_URL}/room/${roomId}`);
+        const res  = await axios.get(`${BACKEND_URL}/room/${slug}`);
         console.log("Room Successfully joined",res.data);
         Router.push(`${EXCILE_URL}/${roomId}`);
     }catch(error: any){
@@ -100,8 +103,8 @@ function Home() {
               </label>
               <input
                 type="text"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
                 placeholder="Enter Room ID"
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               />
