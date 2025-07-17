@@ -37,7 +37,8 @@ export function Canvas({
 
     return <div style={{
         height: "100vh",
-        overflow: "hidden"
+        overflow: "hidden",
+        
     }}>
         <canvas ref={canvasRef} width={window.innerWidth} height={window.innerHeight}></canvas>
         <Topbar setSelectedTool={setSelectedTool} selectedTool={selectedTool} />

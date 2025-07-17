@@ -54,7 +54,7 @@ function Home() {
     try{
         const res  = await axios.get(`${BACKEND_URL}/room/${slug}`);
         console.log("Room Successfully joined",res.data);
-        Router.push(`${EXCILE_URL}/${roomId}`);
+        Router.push(`${EXCILE_URL}/${slug}`);
     }catch(error: any){
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     }
