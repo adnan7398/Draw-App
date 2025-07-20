@@ -30,10 +30,15 @@ export class Game {
   private startX = 0;
   private startY = 0;
   private selectedTool: Tool = "circle";
-
   private scale = 1;
   private offsetX = 0;
   private offsetY = 0;
+  private selectedShape: Shape | null = null;
+  private isDragging: boolean = false;
+  private dragOffsetX = 0;
+  private dragOffsetY = 0;
+  private isDraggingShape = false;
+
 
   socket: WebSocket;
 
@@ -55,7 +60,7 @@ export class Game {
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
   }
 
-  setTool(tool: "circle" | "line" | "rect") {
+  setTool(tool: Tool) {
     this.selectedTool = tool;
   }
 
@@ -71,6 +76,13 @@ export class Game {
         const parsedShape = JSON.parse(message.message);
         this.existingShapes.push(parsedShape.shape);
         this.clearCanvas();
+      } else if (message.type === "edit_shape") {
+        const updatedShape = message.shape;
+        const index = this.existingShapes.findIndex(s => s === this.selectedShape);
+        if (index !== -1) {
+          this.existingShapes[index] = updatedShape;
+          this.clearCanvas();
+        }
       }
     };
 
@@ -114,8 +126,10 @@ export class Game {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     this.existingShapes.forEach((shape) => {
+      this.ctx.strokeStyle = this.selectedShape === shape ? "yellow" : "white";
+      this.ctx.lineWidth = this.selectedShape === shape ? 2 : 1;
+
       if (shape.type === "rect") {
-        this.ctx.strokeStyle = "white";
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       } else if (shape.type === "circle") {
         this.ctx.beginPath();
@@ -132,15 +146,31 @@ export class Game {
     });
   }
 
-  //@ts-ignore
-  mouseDownHandler = (e) => {
-    this.clicked = true;
+  mouseDownHandler = (e: MouseEvent) => {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - this.offsetX) / this.scale;
+    const y = (e.clientY - rect.top - this.offsetY) / this.scale;
+  
     this.startX = e.clientX;
     this.startY = e.clientY;
+  
+    const shape = this.getShapeAtPosition(x, y);
+    if (shape) {
+      this.selectedShape = shape;
+      this.isDragging = true;
+      this.isDraggingShape = true;
+  
+      this.dragOffsetX = x - (shape.type === "rect" ? shape.x : shape.type === "circle" ? shape.centerX : shape.startX);
+      this.dragOffsetY = y - (shape.type === "rect" ? shape.y : shape.type === "circle" ? shape.centerY : shape.startY);
+    } else {
+      this.isDraggingShape = false;
+      this.selectedShape = null;
+    }
+  
+    this.clicked = true;
   };
-
-  //@ts-ignore
-  mouseUpHandler = (e) => {
+  
+  mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
     const endX = e.clientX;
     const endY = e.clientY;
@@ -177,7 +207,7 @@ export class Game {
 
     if (!shape) return;
 
-    this.historyStack.push([...this.existingShapes]); // Save history
+    this.historyStack.push([...this.existingShapes]);
     this.existingShapes.push(shape);
     this.clearCanvas();
 
@@ -188,14 +218,44 @@ export class Game {
     }));
   };
 
-  //@ts-ignore
-  mouseMoveHandler = (e) => {
-    if (this.clicked) {
-      const width = e.clientX - this.startX;
-      const height = e.clientY - this.startY;
+  mouseMoveHandler = (e: MouseEvent) => {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - this.offsetX) / this.scale;
+    const y = (e.clientY - rect.top - this.offsetY) / this.scale;
+  
+    if (this.clicked && this.isDragging && this.selectedShape) {
+      if (this.selectedShape.type === "rect") {
+        this.selectedShape.x = x - this.dragOffsetX;
+        this.selectedShape.y = y - this.dragOffsetY;
+      } else if (this.selectedShape.type === "circle") {
+        this.selectedShape.centerX = x - this.dragOffsetX;
+        this.selectedShape.centerY = y - this.dragOffsetY;
+      } else if (this.selectedShape.type === "line") {
+        const dx = x - this.dragOffsetX - this.selectedShape.startX;
+        const dy = y - this.dragOffsetY - this.selectedShape.startY;
+        this.selectedShape.startX += dx;
+        this.selectedShape.startY += dy;
+        this.selectedShape.endX += dx;
+        this.selectedShape.endY += dy;
+      }
+  
+      this.socket.send(JSON.stringify({
+        type: "edit_shape",
+        shape: this.selectedShape,
+        roomId: this.roomId
+      }));
+  
+      this.clearCanvas();
+      return;
+    }
+  
+    // Drawing preview
+    if (this.clicked && !this.isDragging) {
+      const width = x - this.startX;
+      const height = y - this.startY;
       this.clearCanvas();
       this.ctx.strokeStyle = "white";
-
+  
       if (this.selectedTool === "rect") {
         this.ctx.strokeRect(this.startX, this.startY, width, height);
       } else if (this.selectedTool === "circle") {
@@ -209,13 +269,13 @@ export class Game {
       } else if (this.selectedTool === "line") {
         this.ctx.beginPath();
         this.ctx.moveTo(this.startX, this.startY);
-        this.ctx.lineTo(e.clientX, e.clientY);
+        this.ctx.lineTo(x, y);
         this.ctx.stroke();
         this.ctx.closePath();
       }
     }
   };
-
+  
   initMouseHandlers() {
     this.canvas.addEventListener("mousedown", this.mouseDownHandler);
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);
@@ -225,11 +285,18 @@ export class Game {
       const rect = this.canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left - this.offsetX) / this.scale;
       const y = (e.clientY - rect.top - this.offsetY) / this.scale;
-      const selected = this.getShapeAtPosition(x, y);
-      if (selected) {
-        console.log("Selected Shape", selected);
-        // Show UI for editing or deletion
+
+      const shape = this.getShapeAtPosition(x, y);
+      if (shape) {
+        this.selectedShape = shape;
+        this.dragOffsetX = x - (shape.type === "rect" ? shape.x : shape.type === "circle" ? shape.centerX : shape.startX);
+        this.dragOffsetY = y - (shape.type === "rect" ? shape.y : shape.type === "circle" ? shape.centerY : shape.startY);
+        console.log("Selected for editing", shape);
+      } else {
+        this.selectedShape = null;
       }
+
+      this.clearCanvas();
     });
   }
 }
