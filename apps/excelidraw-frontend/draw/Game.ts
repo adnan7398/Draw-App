@@ -1,24 +1,27 @@
 import { Tool } from "@/component/Canvas";
 import { getExistingShapes } from "./http";
 
-type Shape = {
-  type: "rect";
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} | {
-  type: "circle";
-  centerX: number;
-  centerY: number;
-  radius: number;
-} | {
-  type: "line";
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-};
+type Shape =
+  | {
+      type: "rect";
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    }
+  | {
+      type: "circle";
+      centerX: number;
+      centerY: number;
+      radius: number;
+    }
+  | {
+      type: "line";
+      startX: number;
+      startY: number;
+      endX: number;
+      endY: number;
+    };
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -38,7 +41,7 @@ export class Game {
   private dragOffsetX = 0;
   private dragOffsetY = 0;
   private isDraggingShape = false;
-
+  private resizingHandle: string | null = null;
 
   socket: WebSocket;
 
@@ -150,30 +153,45 @@ export class Game {
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - this.offsetX) / this.scale;
     const y = (e.clientY - rect.top - this.offsetY) / this.scale;
-  
-    this.startX = e.clientX;
-    this.startY = e.clientY;
-  
+
+    this.startX = x;
+    this.startY = y;
+
     const shape = this.getShapeAtPosition(x, y);
     if (shape) {
       this.selectedShape = shape;
       this.isDragging = true;
       this.isDraggingShape = true;
-  
-      this.dragOffsetX = x - (shape.type === "rect" ? shape.x : shape.type === "circle" ? shape.centerX : shape.startX);
-      this.dragOffsetY = y - (shape.type === "rect" ? shape.y : shape.type === "circle" ? shape.centerY : shape.startY);
+
+      if (shape.type === "rect") {
+        this.dragOffsetX = x - shape.x;
+        this.dragOffsetY = y - shape.y;
+      } else if (shape.type === "circle") {
+        this.dragOffsetX = x - shape.centerX;
+        this.dragOffsetY = y - shape.centerY;
+      } else if (shape.type === "line") {
+        this.dragOffsetX = x - shape.startX;
+        this.dragOffsetY = y - shape.startY;
+      }
     } else {
       this.isDraggingShape = false;
       this.selectedShape = null;
     }
-  
+
     this.clicked = true;
   };
-  
+
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
-    const endX = e.clientX;
-    const endY = e.clientY;
+
+    if (this.isDraggingShape) {
+      this.isDragging = false;
+      this.isDraggingShape = false;
+      return;
+    }
+
+    const endX = (e.clientX - this.canvas.getBoundingClientRect().left - this.offsetX) / this.scale;
+    const endY = (e.clientY - this.canvas.getBoundingClientRect().top - this.offsetY) / this.scale;
     const width = endX - this.startX;
     const height = endY - this.startY;
 
@@ -184,16 +202,16 @@ export class Game {
         type: "rect",
         x: this.startX,
         y: this.startY,
-        height,
-        width
+        width,
+        height
       };
     } else if (this.selectedTool === "circle") {
-      const radius = Math.max(width, height) / 2;
+      const radius = Math.sqrt(width * width + height * height) / 2;
       shape = {
         type: "circle",
-        radius: radius,
-        centerX: this.startX + radius,
-        centerY: this.startY + radius
+        centerX: this.startX + width / 2,
+        centerY: this.startY + height / 2,
+        radius
       };
     } else if (this.selectedTool === "line") {
       shape = {
@@ -222,7 +240,7 @@ export class Game {
     const rect = this.canvas.getBoundingClientRect();
     const x = (e.clientX - rect.left - this.offsetX) / this.scale;
     const y = (e.clientY - rect.top - this.offsetY) / this.scale;
-  
+
     if (this.clicked && this.isDragging && this.selectedShape) {
       if (this.selectedShape.type === "rect") {
         this.selectedShape.x = x - this.dragOffsetX;
@@ -238,32 +256,31 @@ export class Game {
         this.selectedShape.endX += dx;
         this.selectedShape.endY += dy;
       }
-  
+
       this.socket.send(JSON.stringify({
         type: "edit_shape",
         shape: this.selectedShape,
         roomId: this.roomId
       }));
-  
+
       this.clearCanvas();
       return;
     }
-  
-    // Drawing preview
+
     if (this.clicked && !this.isDragging) {
       const width = x - this.startX;
       const height = y - this.startY;
       this.clearCanvas();
       this.ctx.strokeStyle = "white";
-  
+
       if (this.selectedTool === "rect") {
         this.ctx.strokeRect(this.startX, this.startY, width, height);
       } else if (this.selectedTool === "circle") {
-        const radius = Math.max(width, height) / 2;
-        const centerX = this.startX + radius;
-        const centerY = this.startY + radius;
+        const radius = Math.sqrt(width * width + height * height) / 2;
+        const centerX = this.startX + width / 2;
+        const centerY = this.startY + height / 2;
         this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
+        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (this.selectedTool === "line") {
@@ -275,7 +292,7 @@ export class Game {
       }
     }
   };
-  
+
   initMouseHandlers() {
     this.canvas.addEventListener("mousedown", this.mouseDownHandler);
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);

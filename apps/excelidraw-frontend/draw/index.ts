@@ -27,12 +27,22 @@ export async function initDraw(
   let historyStack: Shape[][] = [];
   let selectedShape: Shape | null = null;
   let isDragging = false;
+  let isResizing = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
   let clicked = false;
   let startX = 0;
   let startY = 0;
-
+  function drawResizeHandles(shape: Shape) {
+    const handleSize = 8;
+    const corners = [
+      { x: shape.x + shape.width, y: shape.y + shape.height }, 
+    ];
+    context!.fillStyle = "red";
+    for (const corner of corners) {
+      context!.fillRect(corner.x - handleSize / 2, corner.y - handleSize / 2, handleSize, handleSize);
+    }
+  }
   function drawAllShapes() {
     context!.clearRect(0, 0, canvas.width, canvas.height);
     context!.fillStyle = "black";
@@ -41,6 +51,18 @@ export async function initDraw(
     for (const shape of existingShapes) {
       context!.strokeStyle = shape === selectedShape ? "yellow" : "white";
       context!.strokeRect(shape.x, shape.y, shape.width, shape.height);
+      if (shape === selectedShape) {
+        context!.fillStyle = "red";
+        context!.fillRect(
+          shape.x + shape.width - 10,
+          shape.y + shape.height - 10,
+          10,
+          10
+        );
+        if (shape === selectedShape) {
+          drawResizeHandles(shape);
+        }        
+      }
     }
   }
 
@@ -57,6 +79,15 @@ export async function initDraw(
       }
     }
     return null;
+  }
+
+  function isOverResizeHandle(shape: Shape, x: number, y: number): boolean {
+    return (
+      x >= shape.x + shape.width - 10 &&
+      x <= shape.x + shape.width &&
+      y >= shape.y + shape.height - 10 &&
+      y <= shape.y + shape.height
+    );
   }
 
   drawAllShapes();
@@ -87,9 +118,13 @@ export async function initDraw(
     const hitShape = getShapeAtPosition(mouseX, mouseY);
     if (hitShape) {
       selectedShape = hitShape;
-      isDragging = true;
-      dragOffsetX = mouseX - hitShape.x;
-      dragOffsetY = mouseY - hitShape.y;
+      if (isOverResizeHandle(hitShape, mouseX, mouseY)) {
+        isResizing = true;
+      } else {
+        isDragging = true;
+        dragOffsetX = mouseX - hitShape.x;
+        dragOffsetY = mouseY - hitShape.y;
+      }
     } else {
       selectedShape = null;
       clicked = true;
@@ -106,6 +141,10 @@ export async function initDraw(
       selectedShape.x = mouseX - dragOffsetX;
       selectedShape.y = mouseY - dragOffsetY;
       drawAllShapes();
+    } else if (isResizing && selectedShape) {
+      selectedShape.width = mouseX - selectedShape.x;
+      selectedShape.height = mouseY - selectedShape.y;
+      drawAllShapes();
     } else if (clicked) {
       const width = mouseX - startX;
       const height = mouseY - startY;
@@ -119,8 +158,9 @@ export async function initDraw(
     const mouseX = e.clientX - canvas.getBoundingClientRect().left;
     const mouseY = e.clientY - canvas.getBoundingClientRect().top;
 
-    if (isDragging && selectedShape) {
+    if ((isDragging || isResizing) && selectedShape) {
       isDragging = false;
+      isResizing = false;
 
       socket.send(
         JSON.stringify({
@@ -129,7 +169,6 @@ export async function initDraw(
           roomId,
         })
       );
-
       return;
     }
 
