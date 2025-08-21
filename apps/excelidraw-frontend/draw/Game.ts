@@ -67,6 +67,8 @@ export class Game {
   // Freehand drawing state
   private isDrawingPath: boolean = false;
   private currentPathPoints: { x: number; y: number }[] = [];
+  private currentTouchX: number = 0;
+  private currentTouchY: number = 0;
 
   socket: WebSocket;
 
@@ -352,36 +354,59 @@ export class Game {
   }
 
   initTouchHandlers() {
-    this.canvas.addEventListener("touchstart", this.touchStartHandler);
-    this.canvas.addEventListener("touchmove", this.touchMoveHandler);
-    this.canvas.addEventListener("touchend", this.touchEndHandler);
+    // Prevent scrolling on the canvas
+    this.canvas.style.touchAction = 'none';
+    
+    this.canvas.addEventListener("touchstart", this.touchStartHandler, { passive: false });
+    this.canvas.addEventListener("touchmove", this.touchMoveHandler, { passive: false });
+    this.canvas.addEventListener("touchend", this.touchEndHandler, { passive: false });
   }
 
   touchStartHandler = (e: TouchEvent) => {
     e.preventDefault();
+    console.log('Touch start:', e.touches.length, 'touches');
+    
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       const rect = this.canvas.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
       
+      console.log('Touch position:', x, y, 'Tool:', this.selectedTool);
+      
       this.startX = x;
       this.startY = y;
+      this.currentTouchX = x;
+      this.currentTouchY = y;
       this.clicked = true;
       
       const worldPos = this.screenToWorld(x, y);
       
       // Start freehand path if pencil selected
       if (this.selectedTool === "pencil") {
+        console.log('Starting pencil drawing');
         this.isDrawingPath = true;
         this.currentPathPoints = [{ x: worldPos.x, y: worldPos.y }];
         this.clearCanvas();
         return;
       }
       
+      // Handle erase tool
+      if (this.selectedTool === "erase") {
+        const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
+        if (shape) {
+          console.log('Erasing shape:', shape.type);
+          this.existingShapes = this.existingShapes.filter(s => s.id !== shape.id);
+          this.clearCanvas();
+          this.socket.send(JSON.stringify({ type: "erase", shapeId: shape.id, roomId: this.roomId }));
+        }
+        return;
+      }
+      
       const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
       
       if (shape) {
+        console.log('Touching existing shape:', shape.type);
         this.selectedShape = shape;
         this.isDragging = true;
         this.isDraggingShape = true;
@@ -400,6 +425,7 @@ export class Game {
           this.dragOffsetY = worldPos.y - shape.points[0].y;
         }
       } else {
+        console.log('Starting panning');
         this.isPanning = true;
       }
     }
@@ -417,6 +443,7 @@ export class Game {
         // Continue drawing the path
         const worldPos = this.screenToWorld(x, y);
         this.currentPathPoints.push({ x: worldPos.x, y: worldPos.y });
+        console.log('Drawing path, points:', this.currentPathPoints.length);
         this.clearCanvas();
         return;
       }
@@ -457,12 +484,22 @@ export class Game {
         }));
         
         this.clearCanvas();
+      } else if (this.clicked && !this.isPanning && !this.isDraggingShape) {
+        // Update the current touch position for shape drawing
+        this.currentTouchX = x;
+        this.currentTouchY = y;
+        
+        // Redraw canvas to show preview of the shape being drawn
+        this.clearCanvas();
+        this.drawShapePreview();
       }
     }
   };
 
   touchEndHandler = (e: TouchEvent) => {
     e.preventDefault();
+    console.log('Touch end, isDrawingPath:', this.isDrawingPath, 'isDraggingShape:', this.isDraggingShape);
+    
     this.clicked = false;
     this.isPanning = false;
     
@@ -475,6 +512,7 @@ export class Game {
           type: "path",
           points: [...this.currentPathPoints]
         };
+        console.log('Finished drawing path with', this.currentPathPoints.length, 'points');
         this.historyStack.push([...this.existingShapes]);
         this.existingShapes.push(shape);
         this.clearCanvas();
@@ -494,6 +532,64 @@ export class Game {
           shape: this.selectedShape,
           roomId: this.roomId,
           isDragging: false
+        }));
+      }
+      return;
+    }
+    
+    // Create shapes with other tools (rect, circle, line)
+    if (this.clicked && !this.isPanning && !this.isDraggingShape) {
+      const rect = this.canvas.getBoundingClientRect();
+      const endX = this.currentTouchX || this.startX; // Use current touch position if available
+      const endY = this.currentTouchY || this.startY;
+      
+      const startWorldPos = this.screenToWorld(this.startX, this.startY);
+      const endWorldPos = this.screenToWorld(endX, endY);
+      
+      const width = endWorldPos.x - startWorldPos.x;
+      const height = endWorldPos.y - startWorldPos.y;
+      
+      let shape: Shape | null = null;
+      
+      if (this.selectedTool === "rect") {
+        shape = {
+          id: this.generateShapeId(),
+          type: "rect",
+          x: startWorldPos.x,
+          y: startWorldPos.y,
+          width: Math.abs(width),
+          height: Math.abs(height)
+        };
+      } else if (this.selectedTool === "circle") {
+        const radius = Math.sqrt(width * width + height * height) / 2;
+        shape = {
+          id: this.generateShapeId(),
+          type: "circle",
+          centerX: startWorldPos.x + width / 2,
+          centerY: startWorldPos.y + height / 2,
+          radius
+        };
+      } else if (this.selectedTool === "line") {
+        shape = {
+          id: this.generateShapeId(),
+          type: "line",
+          startX: startWorldPos.x,
+          startY: startWorldPos.y,
+          endX: endWorldPos.x,
+          endY: endWorldPos.y
+        };
+      }
+      
+      if (shape) {
+        console.log('Created shape:', shape.type);
+        this.historyStack.push([...this.existingShapes]);
+        this.existingShapes.push(shape);
+        this.clearCanvas();
+        
+        this.socket.send(JSON.stringify({
+          type: "draw",
+          shape,
+          roomId: this.roomId
         }));
       }
     }
@@ -959,5 +1055,49 @@ export class Game {
         this.clearCanvas();
       }
     });
+  }
+
+  // Draw preview of shape being drawn
+  private drawShapePreview() {
+    if (!this.clicked || this.isPanning || this.isDraggingShape) return;
+    
+    const startWorldPos = this.screenToWorld(this.startX, this.startY);
+    const endWorldPos = this.screenToWorld(this.currentTouchX, this.currentTouchY);
+    
+    this.ctx.save();
+    this.ctx.strokeStyle = '#4ECDC4';
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([5, 5]);
+    
+    if (this.selectedTool === "rect") {
+      const width = endWorldPos.x - startWorldPos.x;
+      const height = endWorldPos.y - startWorldPos.y;
+      const screenStart = this.worldToScreen(startWorldPos.x, startWorldPos.y);
+      const screenEnd = this.worldToScreen(startWorldPos.x + width, startWorldPos.y + height);
+      
+      this.ctx.strokeRect(screenStart.x, screenStart.y, screenEnd.x - screenStart.x, screenEnd.y - screenStart.y);
+    } else if (this.selectedTool === "circle") {
+      const width = endWorldPos.x - startWorldPos.x;
+      const height = endWorldPos.y - startWorldPos.y;
+      const radius = Math.sqrt(width * width + height * height) / 2;
+      const centerX = startWorldPos.x + width / 2;
+      const centerY = startWorldPos.y + height / 2;
+      const screenCenter = this.worldToScreen(centerX, centerY);
+      const screenRadius = radius * this.scale;
+      
+      this.ctx.beginPath();
+      this.ctx.arc(screenCenter.x, screenCenter.y, screenRadius, 0, 2 * Math.PI);
+      this.ctx.stroke();
+    } else if (this.selectedTool === "line") {
+      const screenStart = this.worldToScreen(startWorldPos.x, startWorldPos.y);
+      const screenEnd = this.worldToScreen(endWorldPos.x, endWorldPos.y);
+      
+      this.ctx.beginPath();
+      this.ctx.moveTo(screenStart.x, screenStart.y);
+      this.ctx.lineTo(screenEnd.x, screenEnd.y);
+      this.ctx.stroke();
+    }
+    
+    this.ctx.restore();
   }
 }
