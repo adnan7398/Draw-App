@@ -2,7 +2,7 @@
 import axios from 'axios';
 import React, { useState } from 'react';
 import { PenTool, Mail, Lock, User } from 'lucide-react';
-import { BACKEND_URL } from '@/config';
+import { getBackendUrl } from '@/config';
 import { useRouter } from 'next/navigation';
 
 function SignUp() {
@@ -17,7 +17,7 @@ function SignUp() {
     setLoading(true);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/signup`,{
+      const res = await axios.post(`${getBackendUrl()}/signup`,{
         email,
         password,
         name

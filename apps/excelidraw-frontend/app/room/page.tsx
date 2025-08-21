@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from 'react';
-import { BACKEND_URL, EXCILE_URL, ROOM_URL } from '@/config';
+import { getBackendUrl, getExileUrl } from '@/config';
 import  {useRouter}from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import axios from 'axios';
@@ -22,7 +22,7 @@ function Home() {
         }
         console.log(token);
         const res = await axios.post(
-          `${BACKEND_URL}/room`,
+          `${getBackendUrl()}/room`,
           { name: name }, 
           {
             headers: {
@@ -35,7 +35,7 @@ function Home() {
         console.log(res.data.room);
         setRoomId(roomId);
         alert(`Room created successfully! Room ID: ${roomId}`);
-        Router.push(`${EXCILE_URL}/${roomId}`);
+        Router.push(`${getExileUrl()}/${roomId}`);
       } catch (error: any) {
         alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
       } finally {
@@ -52,9 +52,9 @@ function Home() {
             return;
         }
     try{
-        const res  = await axios.get(`${BACKEND_URL}/room/${slug}`);
+        const res  = await axios.get(`${getBackendUrl()}/room/${slug}`);
         console.log("Room Successfully joined",res.data);
-        Router.push(`${EXCILE_URL}/${slug}`);
+        Router.push(`${getExileUrl()}/${slug}`);
     }catch(error: any){
       alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
     }

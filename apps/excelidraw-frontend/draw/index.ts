@@ -1,4 +1,4 @@
-import { BACKEND_URL } from "@/config";
+import { getBackendUrl } from "@/config";
 import axios from "axios";
 
 const generateId = () =>
@@ -211,7 +211,7 @@ export async function initDraw(
 }
 
 async function getExistingShapes(roomId: string): Promise<Shape[]> {
-  const res = await axios.get(`${BACKEND_URL}/chats/${roomId}`);
+  const res = await axios.get(`${getBackendUrl()}/chats/${roomId}`);
   return res.data.messages.map((x: { message: string }) => {
     const parsed = JSON.parse(x.message);
     return parsed.shape as Shape;

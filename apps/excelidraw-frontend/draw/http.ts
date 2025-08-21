@@ -1,12 +1,12 @@
-import { BACKEND_URL} from "@/config";
+import { getBackendUrl } from "@/config";
 import axios from "axios";
 
 export async function getExistingShapes(roomId: string) {
     try {
-        const res = await axios.get(`${BACKEND_URL}/chats/${roomId}`);
+        const res = await axios.get(`${getBackendUrl()}/chats/${roomId}`);
         const messages = res.data.messages;
 
-        const shapes = [];
+        const shapes: any[] = [];
         
         for (const message of messages) {
             try {
@@ -17,7 +17,7 @@ export async function getExistingShapes(roomId: string) {
                     shapes.push(messageData.shape);
                 } else if (messageData.type === "shape_update" && messageData.shape) {
                     // For updates, we need to find and replace existing shapes
-                    const existingIndex = shapes.findIndex(s => s.id === messageData.shape.id);
+                    const existingIndex = shapes.findIndex((s: any) => s.id === messageData.shape.id);
                     if (existingIndex !== -1) {
                         shapes[existingIndex] = messageData.shape;
                     } else {
@@ -25,7 +25,7 @@ export async function getExistingShapes(roomId: string) {
                     }
                 } else if (messageData.type === "shape_delete" && messageData.shapeId) {
                     // Remove deleted shapes
-                    const index = shapes.findIndex(s => s.id === messageData.shapeId);
+                    const index = shapes.findIndex((s: any) => s.id === messageData.shapeId);
                     if (index !== -1) {
                         shapes.splice(index, 1);
                     }
@@ -37,12 +37,12 @@ export async function getExistingShapes(roomId: string) {
         }
 
         // Filter out any invalid shapes
-        return shapes.filter(shape => 
+        return shapes.filter((shape: any) => 
             shape && 
             typeof shape === 'object' && 
             shape.type && 
             shape.id &&
-            (shape.type === "rect" || shape.type === "circle" || shape.type === "line")
+            (shape.type === "rect" || shape.type === "circle" || shape.type === "line" || shape.type === "path")
         );
     } catch (error) {
         console.error("Error fetching existing shapes:", error);

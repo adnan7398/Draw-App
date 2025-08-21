@@ -1,6 +1,6 @@
 "use client";
 
-import { WS_URL } from "@/config";
+import { getWsUrl } from "@/config";
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
 import {Canvas } from "./Canvas";
@@ -11,6 +11,7 @@ export function RoomCanvas({roomId}: {roomId: string}) {
     const [isConnecting, setIsConnecting] = useState(false);
     const [connectionError, setConnectionError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
+    const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const connectWebSocket = () => {
         const token = localStorage.getItem("authToken");
@@ -23,7 +24,9 @@ export function RoomCanvas({roomId}: {roomId: string}) {
         setConnectionError(null);
 
         try {
-            const ws = new WebSocket(`${WS_URL}?token=${token}`);
+            const wsUrl = `${getWsUrl()}?token=${token}`;
+            console.log("Attempting to connect to WebSocket:", wsUrl);
+            const ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {
                 console.log("WebSocket connected successfully");
@@ -42,8 +45,7 @@ export function RoomCanvas({roomId}: {roomId: string}) {
 
             ws.onerror = (error) => {
                 console.error("WebSocket error:", error);
-                setConnectionError("Failed to connect to server. Please check your connection.");
-                setIsConnecting(false);
+                // Don't set error immediately, let onclose handle it
             };
 
             ws.onclose = (event) => {
@@ -51,13 +53,20 @@ export function RoomCanvas({roomId}: {roomId: string}) {
                 setSocket(null);
                 setIsConnecting(false);
                 
-                // Attempt to reconnect after a delay
-                if (event.code !== 1000) { // Don't reconnect if closed normally
-                    setTimeout(() => {
-                        console.log("Attempting to reconnect...");
+                if (retryTimeoutRef.current) {
+                    clearTimeout(retryTimeoutRef.current);
+                }
+                
+                if (event.code !== 1000 && event.code !== 1001) {
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+                    console.log(`Attempting to reconnect in ${delay}ms... (attempt ${retryCount + 1})`);
+                    
+                    retryTimeoutRef.current = setTimeout(() => {
                         setRetryCount(prev => prev + 1);
                         connectWebSocket();
-                    }, 3000);
+                    }, delay);
+                } else {
+                    setConnectionError("Connection closed by server");
                 }
             };
 
@@ -69,15 +78,20 @@ export function RoomCanvas({roomId}: {roomId: string}) {
     };
 
     useEffect(() => {
-        connectWebSocket();
+        const initTimeout = setTimeout(() => {
+            connectWebSocket();
+        }, 500);
         
-        // Cleanup function
         return () => {
+            clearTimeout(initTimeout);
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
             if (socket) {
                 socket.close(1000, "Component unmounting");
             }
         };
-    }, [roomId]); // Add roomId to dependencies
+    }, [roomId]);
    
     if (connectionError) {
         return (
@@ -94,7 +108,11 @@ export function RoomCanvas({roomId}: {roomId: string}) {
                     </div>
                     <div className="space-y-3">
                         <button 
-                            onClick={connectWebSocket}
+                            onClick={() => {
+                                setConnectionError(null);
+                                setRetryCount(0);
+                                connectWebSocket();
+                            }}
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
                         >
                             <RefreshCw className="w-4 h-4" />
@@ -150,7 +168,10 @@ export function RoomCanvas({roomId}: {roomId: string}) {
                         <p className="text-white/70">Unable to establish connection</p>
                     </div>
                     <button 
-                        onClick={connectWebSocket}
+                        onClick={() => {
+                            setRetryCount(0);
+                            connectWebSocket();
+                        }}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
                     >
                         <Wifi className="w-4 h-4" />

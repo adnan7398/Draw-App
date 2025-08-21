@@ -154,5 +154,5 @@ app.get("/room/:slug", async (req, res) => {
         roomId: room?.id
     })
 })
-app.listen(3002);
+app.listen(3002, '0.0.0.0');
 

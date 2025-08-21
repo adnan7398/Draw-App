@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { PenTool, Mail, Lock } from "lucide-react";
-import { BACKEND_URL } from "@/config";
+import { getBackendUrl } from "@/config";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
@@ -16,7 +16,7 @@ function SignIn() {
     setLoading(true);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/signin`, {
+      const res = await axios.post(`${getBackendUrl()}/signin`, {
         email,
         password,
       });

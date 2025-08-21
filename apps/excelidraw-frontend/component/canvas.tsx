@@ -1,10 +1,10 @@
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X } from "lucide-react";
+import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus } from "lucide-react";
 import { Game } from "@/draw/Game";
 
-export type Tool = "circle" | "rect" | "line" | "erase";
+export type Tool = "circle" | "rect" | "line" | "erase" | "pencil";
 
 export function Canvas({
     roomId,
@@ -73,14 +73,12 @@ export function Canvas({
 
     const handleUndo = () => {
         if (game) {
-            // Trigger undo functionality
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }));
         }
     };
 
     const handleRedo = () => {
         if (game) {
-            // Trigger redo functionality
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true }));
         }
     };
@@ -96,7 +94,6 @@ export function Canvas({
 
     return (
         <div className="h-screen bg-gray-900 flex flex-col">
-            {/* Top Navigation Bar */}
             <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
@@ -110,7 +107,7 @@ export function Canvas({
                             <Users size={16} />
                             <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
                         </div>
-                    </div>
+    </div>
                     
                     <div className="flex items-center space-x-3">
                         <button
@@ -141,7 +138,6 @@ export function Canvas({
                 </div>
             </div>
 
-            {/* Main Canvas Area */}
             <div className="flex-1 relative overflow-hidden">
                 <canvas 
                     ref={canvasRef} 
@@ -150,7 +146,6 @@ export function Canvas({
                     className="cursor-crosshair"
                 />
                 
-                {/* Welcome Overlay */}
                 {showWelcome && (
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
                         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl max-w-md mx-4">
@@ -162,6 +157,7 @@ export function Canvas({
                                 </p>
                                 <div className="space-y-2 text-white/60 text-sm">
                                     <p>• <strong>Line Tool:</strong> Draw straight lines</p>
+                                    <p>• <strong>Pencil:</strong> Freehand sketching</p>
                                     <p>• <strong>Rectangle Tool:</strong> Create rectangles</p>
                                     <p>• <strong>Circle Tool:</strong> Draw circles</p>
                                     <p>• <strong>Eraser:</strong> Remove shapes</p>
@@ -178,7 +174,6 @@ export function Canvas({
                     </div>
                 )}
                 
-                {/* Drawing Tools Sidebar */}
                 <div className="absolute left-6 top-1/2 transform -translate-y-1/2">
                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
                         <div className="space-y-3">
@@ -189,9 +184,15 @@ export function Canvas({
                             </div>
                             
                             <IconButton 
+                                onClick={() => setSelectedTool("pencil")}
+                                activated={selectedTool === "pencil"}
+                                icon={<Pencil size={20} />}
+                                label="Pencil"
+                            />
+                            <IconButton 
                                 onClick={() => setSelectedTool("line")}
                                 activated={selectedTool === "line"}
-                                icon={<Pencil size={20} />}
+                                icon={<Minus size={20} />}
                                 label="Line"
                             />
                             <IconButton 
@@ -216,7 +217,6 @@ export function Canvas({
                     </div>
                 </div>
 
-                {/* Color Palette */}
                 <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
                         <div className="text-center mb-3">
@@ -237,7 +237,6 @@ export function Canvas({
                     </div>
                 </div>
 
-                {/* Connection Status Indicator */}
                 <div className="absolute bottom-6 left-6">
                     <div className={`px-4 py-2 rounded-full text-sm font-medium ${
                         isConnected 
@@ -248,15 +247,14 @@ export function Canvas({
                     </div>
                 </div>
 
-                {/* Instructions */}
                 <div className="absolute bottom-6 right-6">
                     <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl max-w-xs">
                         <h4 className="text-white font-medium mb-2">Quick Tips</h4>
                         <ul className="text-white/70 text-sm space-y-1">
                             <li>• Click and drag to draw shapes</li>
-                            <li>• Click on shapes to select them</li>
-                            <li>• Drag selected shapes to move them</li>
-                            <li>• Use Ctrl+Z to undo</li>
+                            <li>• Use Pencil for freehand sketching</li>
+                            <li>• Hold Space or right-drag to pan</li>
+                            <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
                         </ul>
                     </div>
                 </div>

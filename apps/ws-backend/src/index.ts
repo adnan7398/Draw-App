@@ -2,7 +2,17 @@ import {WebSocketServer, WebSocket} from "ws";
 import jwt, { decode, JwtPayload }  from "jsonwebtoken";
 import {JWT_SECRET} from "@repo/backend-common/config"
 import {prismaClient} from "@repo/db/client"
-const wss  = new WebSocketServer({port:8081});
+const wss  = new WebSocketServer({port:8081, host: '0.0.0.0'});
+
+// Add better error handling
+wss.on("error", (error) => {
+    console.error("WebSocket server error:", error);
+});
+
+wss.on("listening", () => {
+    console.log("WebSocket server is listening on port 8081");
+});
+
 interface user {
     ws:WebSocket,
     rooms:string[],
@@ -24,6 +34,7 @@ function checkUser (token:string):string| null{
     }
         return decoded.userId;
     } catch (e) {
+        console.error("JWT verification failed:", e);
         return null
     }
 }
