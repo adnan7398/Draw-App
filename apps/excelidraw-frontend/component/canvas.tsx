@@ -142,8 +142,13 @@ export function Canvas({
                 <canvas 
                     ref={canvasRef} 
                     width={canvasSize.width} 
-                    height={canvasSize.height}
-                    className="cursor-crosshair"
+                    height={canvasSize.height} 
+                    className="cursor-crosshair touch-none select-none"
+                    style={{
+                        touchAction: 'none',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none'
+                    }}
                 />
                 
                 {showWelcome && (
@@ -255,6 +260,8 @@ export function Canvas({
                             <li>• Use Pencil for freehand sketching</li>
                             <li>• Hold Space or right-drag to pan</li>
                             <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
+                            <li>• On mobile: Touch and drag to draw</li>
+                            <li>• Use Pencil tool for freehand on mobile</li>
                         </ul>
                     </div>
                 </div>

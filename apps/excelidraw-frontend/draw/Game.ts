@@ -69,6 +69,9 @@ export class Game {
   private currentPathPoints: { x: number; y: number }[] = [];
   private currentTouchX: number = 0;
   private currentTouchY: number = 0;
+  
+  // Touch drawing state
+  private isDrawingShape: boolean = false;
 
   socket: WebSocket;
 
@@ -356,6 +359,8 @@ export class Game {
   initTouchHandlers() {
     // Prevent scrolling on the canvas
     this.canvas.style.touchAction = 'none';
+    this.canvas.style.userSelect = 'none';
+    this.canvas.style.webkitUserSelect = 'none';
     
     this.canvas.addEventListener("touchstart", this.touchStartHandler, { passive: false });
     this.canvas.addEventListener("touchmove", this.touchMoveHandler, { passive: false });
@@ -424,6 +429,11 @@ export class Game {
           this.dragOffsetX = worldPos.x - shape.points[0].x;
           this.dragOffsetY = worldPos.y - shape.points[0].y;
         }
+      } else if (this.selectedTool === "rect" || this.selectedTool === "circle" || this.selectedTool === "line") {
+        // For drawing tools, don't start panning - allow drawing
+        console.log('Starting drawing with tool:', this.selectedTool);
+        this.isDrawingShape = true;
+        // Don't set isPanning = true for drawing tools
       } else {
         console.log('Starting panning');
         this.isPanning = true;
@@ -484,10 +494,12 @@ export class Game {
         }));
         
         this.clearCanvas();
-      } else if (this.clicked && !this.isPanning && !this.isDraggingShape) {
+      } else if (this.isDrawingShape && !this.isPanning && !this.isDraggingShape) {
         // Update the current touch position for shape drawing
         this.currentTouchX = x;
         this.currentTouchY = y;
+        
+        console.log('Drawing shape preview, tool:', this.selectedTool, 'from', this.startX, this.startY, 'to', x, y);
         
         // Redraw canvas to show preview of the shape being drawn
         this.clearCanvas();
@@ -498,7 +510,7 @@ export class Game {
 
   touchEndHandler = (e: TouchEvent) => {
     e.preventDefault();
-    console.log('Touch end, isDrawingPath:', this.isDrawingPath, 'isDraggingShape:', this.isDraggingShape);
+    console.log('Touch end, isDrawingPath:', this.isDrawingPath, 'isDraggingShape:', this.isDraggingShape, 'isDrawingShape:', this.isDrawingShape);
     
     this.clicked = false;
     this.isPanning = false;
@@ -538,7 +550,7 @@ export class Game {
     }
     
     // Create shapes with other tools (rect, circle, line)
-    if (this.clicked && !this.isPanning && !this.isDraggingShape) {
+    if (this.isDrawingShape && !this.isPanning && !this.isDraggingShape) {
       const rect = this.canvas.getBoundingClientRect();
       const endX = this.currentTouchX || this.startX; // Use current touch position if available
       const endY = this.currentTouchY || this.startY;
@@ -581,7 +593,7 @@ export class Game {
       }
       
       if (shape) {
-        console.log('Created shape:', shape.type);
+        console.log('Created shape:', shape.type, shape);
         this.historyStack.push([...this.existingShapes]);
         this.existingShapes.push(shape);
         this.clearCanvas();
@@ -592,6 +604,7 @@ export class Game {
           roomId: this.roomId
         }));
       }
+      this.isDrawingShape = false;
     }
   };
 
@@ -1059,7 +1072,7 @@ export class Game {
 
   // Draw preview of shape being drawn
   private drawShapePreview() {
-    if (!this.clicked || this.isPanning || this.isDraggingShape) return;
+    if (!this.isDrawingShape || this.isPanning || this.isDraggingShape) return;
     
     const startWorldPos = this.screenToWorld(this.startX, this.startY);
     const endWorldPos = this.screenToWorld(this.currentTouchX, this.currentTouchY);
