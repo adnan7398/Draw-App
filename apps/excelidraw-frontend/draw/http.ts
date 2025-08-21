@@ -2,13 +2,50 @@ import { BACKEND_URL} from "@/config";
 import axios from "axios";
 
 export async function getExistingShapes(roomId: string) {
-    const res = await axios.get(`${BACKEND_URL}/chats/${roomId}`);
-    const messages = res.data.messages;
+    try {
+        const res = await axios.get(`${BACKEND_URL}/chats/${roomId}`);
+        const messages = res.data.messages;
 
-    const shapes = messages.map((x: {message: string}) => {
-        const messageData = JSON.parse(x.message)
-        return messageData.shape;
-    })
+        const shapes = [];
+        
+        for (const message of messages) {
+            try {
+                const messageData = JSON.parse(message.message);
+                
+                // Only process shape-related messages
+                if (messageData.type === "shape_create" && messageData.shape) {
+                    shapes.push(messageData.shape);
+                } else if (messageData.type === "shape_update" && messageData.shape) {
+                    // For updates, we need to find and replace existing shapes
+                    const existingIndex = shapes.findIndex(s => s.id === messageData.shape.id);
+                    if (existingIndex !== -1) {
+                        shapes[existingIndex] = messageData.shape;
+                    } else {
+                        shapes.push(messageData.shape);
+                    }
+                } else if (messageData.type === "shape_delete" && messageData.shapeId) {
+                    // Remove deleted shapes
+                    const index = shapes.findIndex(s => s.id === messageData.shapeId);
+                    if (index !== -1) {
+                        shapes.splice(index, 1);
+                    }
+                }
+            } catch (parseError) {
+                // Skip messages that can't be parsed as JSON
+                continue;
+            }
+        }
 
-    return shapes;
+        // Filter out any invalid shapes
+        return shapes.filter(shape => 
+            shape && 
+            typeof shape === 'object' && 
+            shape.type && 
+            shape.id &&
+            (shape.type === "rect" || shape.type === "circle" || shape.type === "line")
+        );
+    } catch (error) {
+        console.error("Error fetching existing shapes:", error);
+        return [];
+    }
 }

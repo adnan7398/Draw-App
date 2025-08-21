@@ -109,19 +109,38 @@ app.post("/room",Middleware,async(req,res)=>{
     }
 })
 app.get("/chats/:roomId",async (req,res)=>{
-    const roomId = Number(req.params.roomId);
-    const messages  = await prismaClient.chat.findMany({
-       where:{
-        roomId:roomId,
-       },
-       orderBy:{
-            id:"desc"
-       },
-       take:500
-    })
-    res.json({
-        messages
-    })
+    try {
+        const roomId = Number(req.params.roomId);
+        const messages  = await prismaClient.chat.findMany({
+           where:{
+            roomId:roomId,
+           },
+           orderBy:{
+                id:"asc"  // Changed to ascending to maintain proper order
+           },
+           take:1000  // Increased limit to handle more messages
+        })
+        
+        // Filter out invalid messages and add proper error handling
+        const validMessages = messages.filter(msg => {
+            try {
+                if (!msg.message) return false;
+                const parsed = JSON.parse(msg.message);
+                return parsed && (parsed.type || parsed.shape); // Accept both old and new format
+            } catch {
+                return false; // Skip invalid JSON messages
+            }
+        });
+        
+        res.json({
+            messages: validMessages
+        })
+    } catch (error) {
+        console.error("Error fetching chats:", error);
+        res.status(500).json({
+            error: "Failed to fetch chat messages"
+        });
+    }
 })
 app.get("/room/:slug", async (req, res) => {
     const slug = req.params.slug;

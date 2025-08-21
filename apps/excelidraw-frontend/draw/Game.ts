@@ -3,6 +3,7 @@ import { getExistingShapes } from "./http";
 
 type Shape =
   | {
+      id: string;
       type: "rect";
       x: number;
       y: number;
@@ -10,12 +11,14 @@ type Shape =
       height: number;
     }
   | {
+      id: string;
       type: "circle";
       centerX: number;
       centerY: number;
       radius: number;
     }
   | {
+      id: string;
       type: "line";
       startX: number;
       startY: number;
@@ -63,37 +66,106 @@ export class Game {
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
   }
 
+  // Generate unique ID for shapes
+  private generateShapeId(): string {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  cleanupShapes() {
+    // Remove any invalid shapes that might have slipped through
+    const originalLength = this.existingShapes.length;
+    this.existingShapes = this.existingShapes.filter(shape => 
+      shape && typeof shape === 'object' && shape.type && shape.id
+    );
+    if (this.existingShapes.length !== originalLength) {
+      console.log(`Cleaned up ${originalLength - this.existingShapes.length} invalid shapes`);
+      this.clearCanvas();
+    }
+  }
+
   setTool(tool: Tool) {
     this.selectedTool = tool;
   }
 
   async init() {
-    this.existingShapes = await getExistingShapes(this.roomId);
-    this.clearCanvas();
+    try {
+      this.existingShapes = await getExistingShapes(this.roomId);
+      // Filter out any invalid shapes that might have been loaded
+      this.existingShapes = this.existingShapes.filter(shape => 
+        shape && typeof shape === 'object' && shape.type && shape.id
+      );
+      this.cleanupShapes(); // Additional cleanup
+      this.clearCanvas();
+    } catch (error) {
+      console.error("Error loading existing shapes:", error);
+      this.existingShapes = [];
+    }
+    
+    // Set up periodic cleanup
+    setInterval(() => {
+      this.cleanupShapes();
+    }, 10000); // Clean up every 10 seconds
   }
 
   initHandlers() {
     this.socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === "chat") {
-        const parsedShape = JSON.parse(message.message);
-        this.existingShapes.push(parsedShape.shape);
-        this.clearCanvas();
-      } else if (message.type === "edit_shape") {
-        const updatedShape = message.shape;
-        const index = this.existingShapes.findIndex(s => s === this.selectedShape);
-        if (index !== -1) {
-          this.existingShapes[index] = updatedShape;
-          this.clearCanvas();
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === "chat") {
+          try {
+            const parsedData = JSON.parse(message.message);
+            if (parsedData.type === "shape_create" && parsedData.shape && parsedData.shape.type && parsedData.shape.id) {
+              // Check if shape already exists to prevent duplicates
+              if (!this.existingShapes.find(s => s.id === parsedData.shape.id)) {
+                this.existingShapes.push(parsedData.shape);
+                this.clearCanvas();
+              }
+            }
+          } catch (e) {
+            // Handle non-shape chat messages
+          }
+        } else if (message.type === "edit_shape") {
+          const updatedShape = message.shape;
+          if (updatedShape && updatedShape.type && updatedShape.id) {
+            const index = this.existingShapes.findIndex(s => s.id === updatedShape.id);
+            if (index !== -1) {
+              this.existingShapes[index] = updatedShape;
+              this.clearCanvas();
+            }
+          }
+        } else if (message.type === "draw") {
+          const newShape = message.shape;
+          if (newShape && newShape.type && newShape.id) {
+            // Check if shape already exists to prevent duplicates
+            if (!this.existingShapes.find(s => s.id === newShape.id)) {
+              this.existingShapes.push(newShape);
+              this.clearCanvas();
+            }
+          }
+        } else if (message.type === "erase") {
+          const shapeId = message.shapeId;
+          if (typeof shapeId === 'string') {
+            this.existingShapes = this.existingShapes.filter(s => s.id !== shapeId);
+            this.clearCanvas();
+          }
         }
+      } catch (error) {
+        console.error("Error processing WebSocket message:", error);
       }
     };
 
     window.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         if (this.historyStack.length > 0) {
-          this.existingShapes = this.historyStack.pop()!;
-          this.clearCanvas();
+          const previousState = this.historyStack.pop()!;
+          // Ensure the previous state is valid
+          if (Array.isArray(previousState)) {
+            this.existingShapes = previousState.filter(shape => 
+              shape && typeof shape === 'object' && shape.type && shape.id
+            );
+            this.clearCanvas();
+          }
         }
       }
     });
@@ -102,6 +174,8 @@ export class Game {
   getShapeAtPosition(x: number, y: number): Shape | null {
     for (let i = this.existingShapes.length - 1; i >= 0; i--) {
       const shape = this.existingShapes[i];
+      if (!shape || !shape.type || !shape.id) continue; // Skip invalid shapes
+      
       if (shape.type === "rect") {
         if (x >= shape.x && x <= shape.x + shape.width && y >= shape.y && y <= shape.y + shape.height)
           return shape;
@@ -128,7 +202,12 @@ export class Game {
     this.ctx.fillStyle = "rgba(0, 0, 0)";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    this.existingShapes.forEach((shape) => {
+    // Filter out any undefined or null shapes
+    const validShapes = this.existingShapes.filter(shape => 
+      shape && typeof shape === 'object' && shape.type && shape.id
+    );
+    
+    validShapes.forEach((shape) => {
       this.ctx.strokeStyle = this.selectedShape === shape ? "yellow" : "white";
       this.ctx.lineWidth = this.selectedShape === shape ? 2 : 1;
 
@@ -163,6 +242,7 @@ export class Game {
       this.isDragging = true;
       this.isDraggingShape = true;
 
+      // Calculate drag offset from the click position to the shape's reference point
       if (shape.type === "rect") {
         this.dragOffsetX = x - shape.x;
         this.dragOffsetY = y - shape.y;
@@ -170,6 +250,7 @@ export class Game {
         this.dragOffsetX = x - shape.centerX;
         this.dragOffsetY = y - shape.centerY;
       } else if (shape.type === "line") {
+        // For lines, use the start point as reference
         this.dragOffsetX = x - shape.startX;
         this.dragOffsetY = y - shape.startY;
       }
@@ -187,6 +268,16 @@ export class Game {
     if (this.isDraggingShape) {
       this.isDragging = false;
       this.isDraggingShape = false;
+      
+      // Send final position update when dragging stops
+      if (this.selectedShape) {
+        this.socket.send(JSON.stringify({
+          type: "edit_shape",
+          shape: this.selectedShape,
+          roomId: this.roomId,
+          isDragging: false
+        }));
+      }
       return;
     }
 
@@ -199,6 +290,7 @@ export class Game {
 
     if (this.selectedTool === "rect") {
       shape = {
+        id: this.generateShapeId(),
         type: "rect",
         x: this.startX,
         y: this.startY,
@@ -208,6 +300,7 @@ export class Game {
     } else if (this.selectedTool === "circle") {
       const radius = Math.sqrt(width * width + height * height) / 2;
       shape = {
+        id: this.generateShapeId(),
         type: "circle",
         centerX: this.startX + width / 2,
         centerY: this.startY + height / 2,
@@ -215,6 +308,7 @@ export class Game {
       };
     } else if (this.selectedTool === "line") {
       shape = {
+        id: this.generateShapeId(),
         type: "line",
         startX: this.startX,
         startY: this.startY,
@@ -230,8 +324,8 @@ export class Game {
     this.clearCanvas();
 
     this.socket.send(JSON.stringify({
-      type: "chat",
-      message: JSON.stringify({ shape }),
+      type: "draw",
+      shape,
       roomId: this.roomId
     }));
   };
@@ -242,6 +336,7 @@ export class Game {
     const y = (e.clientY - rect.top - this.offsetY) / this.scale;
 
     if (this.clicked && this.isDragging && this.selectedShape) {
+      // Update shape position during drag
       if (this.selectedShape.type === "rect") {
         this.selectedShape.x = x - this.dragOffsetX;
         this.selectedShape.y = y - this.dragOffsetY;
@@ -257,10 +352,12 @@ export class Game {
         this.selectedShape.endY += dy;
       }
 
+      // Send edit message to other users with isDragging flag
       this.socket.send(JSON.stringify({
         type: "edit_shape",
         shape: this.selectedShape,
-        roomId: this.roomId
+        roomId: this.roomId,
+        isDragging: true
       }));
 
       this.clearCanvas();
@@ -305,15 +402,29 @@ export class Game {
 
       const shape = this.getShapeAtPosition(x, y);
       if (shape) {
-        this.selectedShape = shape;
-        this.dragOffsetX = x - (shape.type === "rect" ? shape.x : shape.type === "circle" ? shape.centerX : shape.startX);
-        this.dragOffsetY = y - (shape.type === "rect" ? shape.y : shape.type === "circle" ? shape.centerY : shape.startY);
-        console.log("Selected for editing", shape);
+        if (this.selectedTool === "erase") {
+          // Erase the shape
+          this.existingShapes = this.existingShapes.filter(s => s.id !== shape.id);
+          this.clearCanvas();
+          
+          // Send erase message to other users
+          this.socket.send(JSON.stringify({
+            type: "erase",
+            shapeId: shape.id,
+            roomId: this.roomId
+          }));
+        } else {
+          // Select the shape for editing
+          this.selectedShape = shape;
+          this.dragOffsetX = x - (shape.type === "rect" ? shape.x : shape.type === "circle" ? shape.centerX : shape.startX);
+          this.dragOffsetY = y - (shape.type === "rect" ? shape.y : shape.type === "circle" ? shape.centerY : shape.startY);
+          console.log("Selected for editing", shape);
+          this.clearCanvas();
+        }
       } else {
         this.selectedShape = null;
+        this.clearCanvas();
       }
-
-      this.clearCanvas();
     });
   }
 }
