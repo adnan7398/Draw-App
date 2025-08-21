@@ -199,8 +199,29 @@ export class Game {
 
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = "rgba(0, 0, 0)";
+    
+    // Create a subtle grid background
+    this.ctx.fillStyle = "rgba(15, 23, 42, 1)"; // Dark blue-gray background
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    
+    // Draw subtle grid lines
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    this.ctx.lineWidth = 1;
+    
+    const gridSize = 50;
+    for (let x = 0; x <= this.canvas.width; x += gridSize) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(x, 0);
+      this.ctx.lineTo(x, this.canvas.height);
+      this.ctx.stroke();
+    }
+    
+    for (let y = 0; y <= this.canvas.height; y += gridSize) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, y);
+      this.ctx.lineTo(this.canvas.width, y);
+      this.ctx.stroke();
+    }
 
     // Filter out any undefined or null shapes
     const validShapes = this.existingShapes.filter(shape => 
@@ -208,8 +229,8 @@ export class Game {
     );
     
     validShapes.forEach((shape) => {
-      this.ctx.strokeStyle = this.selectedShape === shape ? "yellow" : "white";
-      this.ctx.lineWidth = this.selectedShape === shape ? 2 : 1;
+      this.ctx.strokeStyle = this.selectedShape === shape ? "#FCD34D" : "#FFFFFF"; // Yellow for selected, white for others
+      this.ctx.lineWidth = this.selectedShape === shape ? 3 : 2;
 
       if (shape.type === "rect") {
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
