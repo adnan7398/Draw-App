@@ -49,6 +49,9 @@ export function Canvas({
     const [shapeDetectionTimeout, setShapeDetectionTimeout] = useState<NodeJS.Timeout | null>(null);
     const [lastDrawnShape, setLastDrawnShape] = useState<any>(null);
     const [isConvertingShape, setIsConvertingShape] = useState(false);
+    
+    // UI State
+    const [showQuickTips, setShowQuickTips] = useState(true);
 
     const mlBackendUrl = getMLBackendUrl();
 
@@ -68,8 +71,16 @@ export function Canvas({
                 ctx.fillStyle = '#FFFFFF';
             }
 
+            // Add event listener for quick tips toggle
+            const handleToggleQuickTips = () => {
+                setShowQuickTips(prev => !prev);
+            };
+            
+            canvasRef.current.addEventListener('toggleQuickTips', handleToggleQuickTips);
+
             return () => {
                 g.destroy();
+                canvasRef.current?.removeEventListener('toggleQuickTips', handleToggleQuickTips);
             }
         }
     }, [canvasRef]);
@@ -768,6 +779,7 @@ export function Canvas({
                                     <p>• <strong>Circle Tool:</strong> Draw circles</p>
                                     <p>• <strong>Eraser:</strong> Remove shapes</p>
                                     <p>• <strong>Text Tool:</strong> Click and type directly on canvas</p>
+                                    <p>• <strong>Resize:</strong> Click shapes to see resize handles</p>
                                     <p>• <strong>AI Tools:</strong> Click the AI button for smart features</p>
                                     <p>• <strong>Live AI:</strong> Enable to auto-convert rough shapes to perfect ones</p>
                                 </div>
@@ -888,21 +900,47 @@ export function Canvas({
                 </div>
 
                 <div className="absolute bottom-6 right-6">
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl max-w-xs">
-                        <h4 className="text-white font-medium mb-2">Quick Tips</h4>
-                        <ul className="text-white/70 text-sm space-y-1">
-                            <li>• Click and drag to draw shapes</li>
-                            <li>• Use Pencil for freehand sketching</li>
-                            <li>• Click Text tool, then click canvas and type</li>
-                            <li>• Click text to select, Ctrl+C to copy, Ctrl+V to paste</li>
-                            <li>• Hold Space or right-drag to pan</li>
-                            <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
-                            <li>• Click AI button for smart features</li>
-                            <li>• Enable Live AI to auto-convert rough shapes</li>
-                            <li>• Upload images for AI analysis</li>
-                        </ul>
-                        
-                    </div>
+                    {showQuickTips ? (
+                        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl max-w-xs animate-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-white font-medium">Quick Tips</h4>
+                                <button
+                                    onClick={() => setShowQuickTips(false)}
+                                    className="text-white/60 hover:text-white/80 transition-colors"
+                                    title="Hide Quick Tips"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <ul className="text-white/70 text-sm space-y-1">
+                                <li>• Click and drag to draw shapes</li>
+                                <li>• Use Pencil for freehand sketching</li>
+                                <li>• Click Text tool, then click canvas and type</li>
+                                <li>• Click text to select, Ctrl+C to copy, Ctrl+V to paste</li>
+                                <li>• <strong>Click shapes to see resize handles</strong></li>
+                                <li>• <strong>Drag handles to resize shapes</strong></li>
+                                <li>• <strong>Ctrl+T to create test shape</strong></li>
+                                <li>• <strong>Ctrl+R to debug resize handles</strong></li>
+                                <li>• <strong>Ctrl+H to hide/show tips</strong></li>
+                                <li>• Hold Space or right-drag to pan</li>
+                                <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
+                                <li>• Click AI button for smart features</li>
+                                <li>• Enable Live AI to auto-convert rough shapes</li>
+                                <li>• Upload images for AI analysis</li>
+                            </ul>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setShowQuickTips(true)}
+                            className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 shadow-xl hover:bg-white/20 transition-colors animate-in slide-in-from-bottom-2 duration-300 group"
+                            title="Show Quick Tips (Ctrl+H)"
+                        >
+                            <div className="flex items-center space-x-2 text-white/70 group-hover:text-white/90">
+                                <Sparkles size={16} />
+                                <span className="text-sm font-medium">Show Tips</span>
+                            </div>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

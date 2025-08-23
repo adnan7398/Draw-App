@@ -59,6 +59,10 @@ export class Game {
   private dragOffsetY = 0;
   private isDraggingShape = false;
   private resizingHandle: string | null = null;
+  private isResizing: boolean = false;
+  private resizeStartX: number = 0;
+  private resizeStartY: number = 0;
+  private originalShape: Shape | null = null;
   
   // Infinite scrolling properties
   private isPanning: boolean = false;
@@ -120,6 +124,170 @@ export class Game {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
+  // Get resize handles for a shape
+  private getResizeHandles(shape: Shape): { x: number; y: number; width: number; height: number; handle: string }[] {
+    const handles: { x: number; y: number; width: number; height: number; handle: string }[] = [];
+    const handleSize = 16; // Larger handle size for easier clicking
+    
+    if (shape.type === "rect") {
+      const screenPos = this.worldToScreen(shape.x, shape.y);
+      const screenWidth = shape.width * this.scale;
+      const screenHeight = shape.height * this.scale;
+      
+      // Corner handles
+      handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "nw" });
+      handles.push({ x: screenPos.x + screenWidth - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "ne" });
+      handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "sw" });
+      handles.push({ x: screenPos.x + screenWidth - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "se" });
+      
+      // Edge handles
+      handles.push({ x: screenPos.x + screenWidth/2 - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "n" });
+      handles.push({ x: screenPos.x + screenWidth/2 - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "s" });
+      handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y + screenHeight/2 - handleSize/2, width: handleSize, height: handleSize, handle: "w" });
+      handles.push({ x: screenPos.x + screenWidth - handleSize/2, y: screenPos.y + screenHeight/2 - handleSize/2, width: handleSize, height: handleSize, handle: "e" });
+      
+    } else if (shape.type === "circle") {
+      const screenPos = this.worldToScreen(shape.centerX, shape.centerY);
+      const screenRadius = shape.radius * this.scale;
+      
+      // Circle resize handles (8 points around the circle)
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * Math.PI) / 4;
+        const x = screenPos.x + Math.cos(angle) * screenRadius - handleSize/2;
+        const y = screenPos.y + Math.sin(angle) * screenRadius - handleSize/2;
+        handles.push({ x, y, width: handleSize, height: handleSize, handle: `circle-${i}` });
+      }
+      
+    } else if (shape.type === "text") {
+      const screenPos = this.worldToScreen(shape.x, shape.y);
+      
+      // Create a temporary canvas to measure text
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d')!;
+      tempCtx.font = `${shape.fontSize * this.scale}px Arial`;
+      const metrics = tempCtx.measureText(shape.text);
+      const textWidth = metrics.width;
+      const textHeight = shape.fontSize * this.scale;
+      
+      // Corner handles for text
+      handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - textHeight - handleSize/2, width: handleSize, height: handleSize, handle: "nw" });
+      handles.push({ x: screenPos.x + textWidth - handleSize/2, y: screenPos.y - textHeight - handleSize/2, width: handleSize, height: handleSize, handle: "ne" });
+      handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "sw" });
+      handles.push({ x: screenPos.x + textWidth - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "se" });
+    }
+    
+    return handles;
+  }
+
+  // Check if a point is over a resize handle
+  private getResizeHandleAtPosition(x: number, y: number): { shape: Shape; handle: string } | null {
+    if (!this.selectedShape) return null;
+    
+    const handles = this.getResizeHandles(this.selectedShape);
+    
+    for (const handle of handles) {
+      if (x >= handle.x && x <= handle.x + handle.width &&
+          y >= handle.y && y <= handle.y + handle.height) {
+        return { shape: this.selectedShape, handle: handle.handle };
+      }
+    }
+    
+    return null;
+  }
+
+  // Resize a shape based on handle and new position
+  private resizeShape(shape: Shape, handle: string, newX: number, newY: number) {
+    if (!this.originalShape) return;
+    
+    console.log('Resizing shape:', shape.type, 'handle:', handle, 'newPos:', newX, newY);
+    
+    if (shape.type === "rect") {
+      const originalRect = this.originalShape as any;
+      const totalDeltaX = newX - this.resizeStartX;
+      const totalDeltaY = newY - this.resizeStartY;
+      
+      switch (handle) {
+        case "nw":
+          shape.x = originalRect.x + totalDeltaX;
+          shape.y = originalRect.y + totalDeltaY;
+          shape.width = originalRect.width - totalDeltaX;
+          shape.height = originalRect.height - totalDeltaY;
+          break;
+        case "ne":
+          shape.x = originalRect.x;
+          shape.y = originalRect.y + totalDeltaY;
+          shape.width = originalRect.width + totalDeltaX;
+          shape.height = originalRect.height - totalDeltaY;
+          break;
+        case "sw":
+          shape.x = originalRect.x + totalDeltaX;
+          shape.y = originalRect.y;
+          shape.width = originalRect.width - totalDeltaX;
+          shape.height = originalRect.height + totalDeltaY;
+          break;
+        case "se":
+          shape.x = originalRect.x;
+          shape.y = originalRect.y;
+          shape.width = originalRect.width + totalDeltaX;
+          shape.height = originalRect.height + totalDeltaY;
+          break;
+        case "n":
+          shape.x = originalRect.x;
+          shape.y = originalRect.y + totalDeltaY;
+          shape.width = originalRect.width;
+          shape.height = originalRect.height - totalDeltaY;
+          break;
+        case "s":
+          shape.x = originalRect.x;
+          shape.y = originalRect.y;
+          shape.width = originalRect.width;
+          shape.height = originalRect.height + totalDeltaY;
+          break;
+        case "w":
+          shape.x = originalRect.x + totalDeltaX;
+          shape.y = originalRect.y;
+          shape.width = originalRect.width - totalDeltaX;
+          shape.height = originalRect.height;
+          break;
+        case "e":
+          shape.x = originalRect.x;
+          shape.y = originalRect.y;
+          shape.width = originalRect.width + totalDeltaX;
+          shape.height = originalRect.height;
+          break;
+      }
+      
+      // Ensure minimum size
+      shape.width = Math.max(10, shape.width);
+      shape.height = Math.max(10, shape.height);
+      
+    } else if (shape.type === "circle") {
+      const originalCircle = this.originalShape as any;
+      const totalDeltaX = newX - this.resizeStartX;
+      const totalDeltaY = newY - this.resizeStartY;
+      
+      // Determine which direction to resize based on handle
+      const handleIndex = parseInt(handle.split('-')[1]);
+      const angle = (handleIndex * Math.PI) / 4;
+      const cosAngle = Math.cos(angle);
+      const sinAngle = Math.sin(angle);
+      
+      // Calculate new radius based on handle position
+      const radiusDelta = (cosAngle * totalDeltaX + sinAngle * totalDeltaY);
+      shape.radius = Math.max(5, originalCircle.radius + radiusDelta);
+      
+    } else if (shape.type === "text") {
+      const originalText = this.originalShape as any;
+      const totalDeltaX = newX - this.resizeStartX;
+      const totalDeltaY = newY - this.resizeStartY;
+      
+      // Resize text by changing font size
+      const scaleFactor = 1 + (totalDeltaX + totalDeltaY) / 200; // Adjust sensitivity
+      const newFontSize = Math.max(8, Math.min(72, originalText.fontSize * scaleFactor));
+      shape.fontSize = newFontSize;
+    }
+  }
+
   cleanupShapes() {
     // Remove any invalid shapes that might have slipped through
     const originalLength = this.existingShapes.length;
@@ -134,6 +302,34 @@ export class Game {
 
   setTool(tool: Tool) {
     this.selectedTool = tool;
+  }
+
+  // Debug method to test resize handles
+  debugResizeHandles() {
+    if (this.selectedShape) {
+      const handles = this.getResizeHandles(this.selectedShape);
+      console.log('Debug: Selected shape:', this.selectedShape.type);
+      console.log('Debug: Resize handles:', handles);
+    } else {
+      console.log('Debug: No shape selected');
+    }
+  }
+
+  // Create a test shape for debugging
+  createTestShape() {
+    const testShape: Shape = {
+      id: this.generateShapeId(),
+      type: "rect",
+      x: 100,
+      y: 100,
+      width: 150,
+      height: 100
+    };
+    
+    this.existingShapes.push(testShape);
+    this.selectedShape = testShape;
+    this.clearCanvas();
+    console.log('Created test shape:', testShape);
   }
 
   async init() {
@@ -351,6 +547,25 @@ export class Game {
           this.isPanning = true;
           this.canvas.style.cursor = "grab";
           break;
+        case "r":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.debugResizeHandles();
+          }
+          break;
+        case "t":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.createTestShape();
+          }
+          break;
+        case "h":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            // Dispatch custom event to toggle quick tips
+            this.canvas.dispatchEvent(new CustomEvent('toggleQuickTips'));
+          }
+          break;
       }
     };
 
@@ -450,6 +665,17 @@ export class Game {
         return;
       }
       
+      // Check for resize handles first
+      const resizeHandle = this.getResizeHandleAtPosition(x, y);
+      if (resizeHandle) {
+        this.isResizing = true;
+        this.resizingHandle = resizeHandle.handle;
+        this.resizeStartX = worldPos.x;
+        this.resizeStartY = worldPos.y;
+        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); // Deep copy
+        return;
+      }
+
       const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
       
       if (shape) {
@@ -500,6 +726,22 @@ export class Game {
       const rect = this.canvas.getBoundingClientRect();
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
+      
+      // Handle resizing on touch
+      if (this.isResizing && this.selectedShape && this.resizingHandle) {
+        const worldPos = this.screenToWorld(x, y);
+        this.resizeShape(this.selectedShape, this.resizingHandle, worldPos.x, worldPos.y);
+        this.clearCanvas();
+        
+        // Send resize update to other users
+        this.socket.send(JSON.stringify({
+          type: "edit_shape",
+          shape: this.selectedShape,
+          roomId: this.roomId,
+          isDragging: true
+        }));
+        return;
+      }
       
       if (this.isDrawingPath) {
         // Continue drawing the path
@@ -569,6 +811,23 @@ export class Game {
     
     this.clicked = false;
     this.isPanning = false;
+    
+    // Finish resizing
+    if (this.isResizing) {
+      this.isResizing = false;
+      this.resizingHandle = null;
+      
+      // Send final resize update
+      if (this.selectedShape) {
+        this.socket.send(JSON.stringify({
+          type: "edit_shape",
+          shape: this.selectedShape,
+          roomId: this.roomId,
+          isDragging: false
+        }));
+      }
+      return;
+    }
     
     // Finish freehand drawing
     if (this.isDrawingPath) {
@@ -709,10 +968,6 @@ export class Game {
         }
       } else if (shape.type === "text") {
         // Check if click is within text bounds
-        const screenPos = this.worldToScreen(shape.x, shape.y);
-        const screenX = (x - this.offsetX) / this.scale;
-        const screenY = (y - this.offsetY) / this.scale;
-        
         // Create a temporary canvas context to measure text
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d')!;
@@ -721,10 +976,10 @@ export class Game {
         const textWidth = metrics.width;
         const textHeight = shape.fontSize;
         
-        if (screenX >= shape.x && 
-            screenX <= shape.x + textWidth && 
-            screenY >= shape.y - textHeight && 
-            screenY <= shape.y) {
+        if (x >= shape.x && 
+            x <= shape.x + textWidth && 
+            y >= shape.y - textHeight && 
+            y <= shape.y) {
           return shape;
         }
       }
@@ -769,6 +1024,13 @@ export class Game {
     validShapes.forEach((shape) => {
       this.ctx.strokeStyle = this.selectedShape === shape ? "#FCD34D" : "#FFFFFF"; // Yellow for selected, white for others
       this.ctx.lineWidth = this.selectedShape === shape ? 3 : 2;
+      
+      // Add selection indicator
+      if (this.selectedShape === shape) {
+        this.ctx.setLineDash([5, 5]);
+      } else {
+        this.ctx.setLineDash([]);
+      }
 
       if (shape.type === "rect") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
@@ -841,6 +1103,22 @@ export class Game {
       this.ctx.stroke();
       this.ctx.closePath();
     }
+
+    // Draw resize handles for selected shape
+    if (this.selectedShape && (this.selectedShape.type === "rect" || this.selectedShape.type === "circle" || this.selectedShape.type === "text")) {
+      const handles = this.getResizeHandles(this.selectedShape);
+      
+      console.log('Drawing', handles.length, 'resize handles for', this.selectedShape.type);
+      
+      this.ctx.fillStyle = "#FF6B6B"; // Red handles for better visibility
+      this.ctx.strokeStyle = "#FFFFFF"; // White border
+      this.ctx.lineWidth = 2;
+      
+      handles.forEach(handle => {
+        this.ctx.fillRect(handle.x, handle.y, handle.width, handle.height);
+        this.ctx.strokeRect(handle.x, handle.y, handle.width, handle.height);
+      });
+    }
   }
 
   mouseDownHandler = (e: MouseEvent) => {
@@ -896,6 +1174,19 @@ export class Game {
         return;
       }
 
+      // Check for resize handles first
+      const resizeHandle = this.getResizeHandleAtPosition(x, y);
+      if (resizeHandle) {
+        console.log('Starting resize:', resizeHandle.handle, 'on shape:', resizeHandle.shape.type);
+        this.isResizing = true;
+        this.resizingHandle = resizeHandle.handle;
+        this.resizeStartX = worldPos.x;
+        this.resizeStartY = worldPos.y;
+        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); // Deep copy
+        this.canvas.style.cursor = "nw-resize";
+        return;
+      }
+
       const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
       
       if (shape) {
@@ -945,6 +1236,24 @@ export class Game {
     this.clicked = false;
 
     if (e.button === 0) { // Left click
+      // Finish resizing
+      if (this.isResizing) {
+        this.isResizing = false;
+        this.resizingHandle = null;
+        this.canvas.style.cursor = "crosshair";
+        
+        // Send final resize update
+        if (this.selectedShape) {
+          this.socket.send(JSON.stringify({
+            type: "edit_shape",
+            shape: this.selectedShape,
+            roomId: this.roomId,
+            isDragging: false
+          }));
+        }
+        return;
+      }
+
       // Finish freehand drawing
       if (this.isDrawingPath) {
         this.isDrawingPath = false;
@@ -1040,6 +1349,22 @@ export class Game {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Handle resizing
+    if (this.isResizing && this.selectedShape && this.resizingHandle) {
+      const worldPos = this.screenToWorld(x, y);
+      this.resizeShape(this.selectedShape, this.resizingHandle, worldPos.x, worldPos.y);
+      this.clearCanvas();
+      
+      // Send resize update to other users
+      this.socket.send(JSON.stringify({
+        type: "edit_shape",
+        shape: this.selectedShape,
+        roomId: this.roomId,
+        isDragging: true
+      }));
+      return;
+    }
 
     if (this.isPanning) {
       const deltaX = x - this.startX;
