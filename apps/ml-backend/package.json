@@ -7,7 +7,7 @@
     "dev": "bash start-simple.sh",
     "start": "bash start-simple.sh",
     "build": "echo 'Python service - no build step needed'",
-    "test": "echo 'Run individual AI feature tests'",
+    "test": "python3 test_ai_features.py",
     "lint": "black . && isort . && flake8 .",
     "format": "black . && isort .",
     "setup": "python3 setup-simple.py",

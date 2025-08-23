@@ -18,7 +18,7 @@ import os
 from dotenv import load_dotenv
 
 # Import AI services
-from ai_services import (
+from .ai_services import (
     ShapeRecognitionService, 
     DiagramDetectionService, 
     OCRService, 

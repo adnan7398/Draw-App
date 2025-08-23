@@ -33,60 +33,6 @@ app.add_middleware(
 async def root():
     """Health check endpoint"""
     return {"message": "Draw-App ML Backend is running!", "status": "healthy", "version": "simplified"}
-
-@app.get("/health")
-async def health_check():
-    """Detailed health check"""
-    return {
-        "status": "healthy",
-        "version": "1.0.0",
-        "mode": "simplified",
-        "capabilities": [
-            "basic_image_analysis",
-            "image_enhancement",
-            "health_monitoring"
-        ]
-    }
-
-@app.post("/analyze-drawing")
-async def analyze_drawing(
-    image: UploadFile = File(...),
-    analysis_type: str = Form("general")
-):
-    """Analyze uploaded drawing and provide basic insights"""
-    try:
-        # Read and process image
-        image_data = await image.read()
-        pil_image = Image.open(io.BytesIO(image_data))
-        
-        # Convert to numpy array for basic processing
-        img_array = np.array(pil_image)
-        
-        # Basic image analysis
-        analysis = {
-            "dimensions": pil_image.size,
-            "mode": pil_image.mode,
-            "file_size": len(image_data),
-            "brightness": float(np.mean(img_array)),
-            "contrast": float(np.std(img_array)),
-            "analysis_type": analysis_type,
-            "status": "completed"
-        }
-        
-        # Add color analysis if RGB
-        if pil_image.mode == "RGB":
-            colors = np.mean(img_array, axis=(0, 1))
-            analysis["dominant_colors"] = {
-                "red": float(colors[0]),
-                "green": float(colors[1]),
-                "blue": float(colors[2])
-            }
-        
-        return JSONResponse(content=analysis)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
-
 @app.post("/enhance-drawing")
 async def enhance_drawing(
     image: UploadFile = File(...),

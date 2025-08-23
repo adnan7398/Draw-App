@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { getBackendUrl, getExileUrl } from '@/config';
 import  {useRouter}from 'next/navigation';
-import { PenLine } from 'lucide-react';
+import { PenLine, Brain, Sparkles } from 'lucide-react';
 import axios from 'axios';
 
 function Home() {
@@ -13,7 +13,7 @@ function Home() {
     const [error, setError] = useState('');
     const [slug,setSlug] = useState('');
 
-  const  createRoom =  async (e) => {
+  const  createRoom =  async (e: React.MouseEvent) => {
     try {
         const token = localStorage.getItem("authToken");
         if (!token) {
@@ -74,6 +74,18 @@ function Home() {
           <p className="mt-2 text-sm text-gray-600">
             Create or join a room to start drawing together
           </p>
+        </div>
+
+        {/* AI Tools Navigation */}
+        <div className="text-center mb-6">
+          <button
+            onClick={() => Router.push("/ai-tools")}
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 transform hover:scale-105"
+          >
+            <Brain className="w-4 h-4 mr-2" />
+            <Sparkles className="w-4 h-4 mr-2" />
+            Try AI Tools
+          </button>
         </div>
 
         <div className="mt-8 space-y-6">
