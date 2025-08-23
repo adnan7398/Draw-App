@@ -4,11 +4,15 @@
   "description": "ML Backend for AI integration in Draw-App",
   "main": "src/main.py",
   "scripts": {
-    "dev": "uvicorn src.main:app --reload --host 0.0.0.0 --port 3003",
-    "start": "uvicorn src.main:app --host 0.0.0.0 --port 3003",
-    "test": "pytest",
+    "dev": "node dev.js",
+    "start": "node dev.js",
+    "start-simple": "bash start-simple.sh",
+    "build": "echo 'Python service - no build step needed'",
+    "test": "python3 test_api.py",
     "lint": "black . && isort . && flake8 .",
-    "format": "black . && isort ."
+    "format": "black . && isort .",
+    "setup": "python3 setup-simple.py",
+    "install-deps": "pip install -r requirements.txt"
   },
   "dependencies": {
     "fastapi": "^0.104.1",
@@ -33,5 +37,8 @@
   },
   "engines": {
     "python": ">=3.9"
+  },
+  "turbo": {
+    "outputs": []
   }
 }

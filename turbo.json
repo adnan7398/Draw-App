@@ -16,6 +16,16 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "setup": {
+      "cache": false
+    },
+    "install-deps": {
+      "cache": false
     }
   }
 }
