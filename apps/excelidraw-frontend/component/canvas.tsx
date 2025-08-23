@@ -1,7 +1,7 @@
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon } from "lucide-react";
+import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2 } from "lucide-react";
 import { Game } from "@/draw/Game";
 import { getMLBackendUrl } from "@/config";
 
@@ -46,6 +46,8 @@ export function Canvas({
     const [textElements, setTextElements] = useState<Array<{id: string, text: string, x: number, y: number, fontSize: number, color: string}>>([]);
     const [textIdCounter, setTextIdCounter] = useState(0);
     const [currentTextElement, setCurrentTextElement] = useState<{id: string, text: string, x: number, y: number, fontSize: number, color: string} | null>(null);
+    const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+    const [selectionBox, setSelectionBox] = useState<{x: number, y: number, width: number, height: number} | null>(null);
     
     // Live AI Shape Recognition
     const [liveAIShape, setLiveAIShape] = useState(false);
@@ -119,6 +121,12 @@ export function Canvas({
             return () => window.removeEventListener('keydown', handleKeyDown);
         }
     }, [isTyping, currentTextElement]);
+
+    // Add global keyboard shortcuts
+    useEffect(() => {
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [selectedTextId, canvasSize]);
 
     // Redraw canvas whenever text elements change
     useEffect(() => {
@@ -330,12 +338,8 @@ export function Canvas({
         
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
-        
-        // Create a new image from the cleaned base64
         const img = new Image();
         img.onload = () => {
-            // Clear the canvas area where the shape was drawn
-            // For simplicity, we'll clear the entire canvas and redraw
             ctx.clearRect(0, 0, canvasRef.current!.width, canvasRef.current!.height);
             
             // Draw the cleaned shape
@@ -352,10 +356,13 @@ export function Canvas({
 
     // Text Tool Functions
     const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+        const rect = canvasRef.current!.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        
         if (selectedTool === 'text') {
-            const rect = canvasRef.current!.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
+            // Deselect any previously selected text
+            deselectText();
             
             setTextPosition({ x, y });
             setIsTyping(true);
@@ -373,6 +380,27 @@ export function Canvas({
             setCurrentTextElement(newTextElement);
             setTextElements(prev => [...prev, newTextElement]);
             setTextIdCounter(prev => prev + 1);
+        } else {
+            // Check if clicked on existing text for selection
+            const clickedText = textElements.find(text => {
+                const ctx = canvasRef.current?.getContext('2d');
+                if (!ctx) return false;
+                
+                const metrics = ctx.measureText(text.text);
+                const textWidth = metrics.width;
+                const textHeight = text.fontSize;
+                
+                return x >= text.x && 
+                       x <= text.x + textWidth && 
+                       y >= text.y - textHeight && 
+                       y <= text.y;
+            });
+            
+            if (clickedText) {
+                selectText(clickedText.id);
+            } else {
+                deselectText();
+            }
         }
     };
 
@@ -405,8 +433,109 @@ export function Canvas({
         }
     };
 
+    // Global keyboard shortcuts for text operations
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+        // Only handle shortcuts when not typing
+        if (isTyping) return;
+        
+        if (event.ctrlKey || event.metaKey) {
+            switch (event.key) {
+                case 'c':
+                    if (selectedTextId) {
+                        event.preventDefault();
+                        copySelectedText();
+                    }
+                    break;
+                case 'v':
+                    event.preventDefault();
+                    // Paste at center of canvas
+                    const x = canvasSize.width / 2;
+                    const y = canvasSize.height / 2;
+                    pasteText(x, y);
+                    break;
+                case 'x':
+                    if (selectedTextId) {
+                        event.preventDefault();
+                        copySelectedText();
+                        deleteSelectedText();
+                    }
+                    break;
+            }
+        } else if (event.key === 'Delete' || event.key === 'Backspace') {
+            if (selectedTextId) {
+                event.preventDefault();
+                deleteSelectedText();
+            }
+        } else if (event.key === 'Escape') {
+            if (selectedTextId) {
+                deselectText();
+            }
+        }
+    };
+
     const removeText = (id: string) => {
         setTextElements(prev => prev.filter(text => text.id !== id));
+    };
+
+    // Text Selection Functions
+    const selectText = (textId: string) => {
+        setSelectedTextId(textId);
+        const textElement = textElements.find(el => el.id === textId);
+        if (textElement) {
+            const ctx = canvasRef.current?.getContext('2d');
+            if (ctx) {
+                const metrics = ctx.measureText(textElement.text);
+                const width = metrics.width;
+                const height = textElement.fontSize;
+                setSelectionBox({
+                    x: textElement.x - 2,
+                    y: textElement.y - textElement.fontSize + 2,
+                    width: width + 4,
+                    height: textElement.fontSize + 4
+                });
+            }
+        }
+    };
+
+    const deselectText = () => {
+        setSelectedTextId(null);
+        setSelectionBox(null);
+    };
+
+    const copySelectedText = () => {
+        if (selectedTextId) {
+            const textElement = textElements.find(el => el.id === selectedTextId);
+            if (textElement) {
+                navigator.clipboard.writeText(textElement.text);
+                // Show copy feedback
+                setTimeout(() => deselectText(), 500);
+            }
+        }
+    };
+
+    const pasteText = (x: number, y: number) => {
+        navigator.clipboard.readText().then(text => {
+            if (text.trim()) {
+                const newId = `text_${textIdCounter + 1}`;
+                const newTextElement = {
+                    id: newId,
+                    text: text,
+                    x: x,
+                    y: y,
+                    fontSize: 16,
+                    color: '#FFFFFF'
+                };
+                setTextElements(prev => [...prev, newTextElement]);
+                setTextIdCounter(prev => prev + 1);
+            }
+        }).catch(err => console.log('Failed to read clipboard'));
+    };
+
+    const deleteSelectedText = () => {
+        if (selectedTextId) {
+            setTextElements(prev => prev.filter(el => el.id !== selectedTextId));
+            deselectText();
+        }
     };
 
     const drawTextElements = () => {
@@ -459,7 +588,7 @@ export function Canvas({
                             <Users size={16} />
                             <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
                         </div>
-                    </div>
+    </div>
                     
                     <div className="flex items-center space-x-3">
                         <button
@@ -567,6 +696,47 @@ export function Canvas({
                             top: currentTextElement.y - 20
                         }}
                     />
+                )}
+
+                {/* Text Selection Box */}
+                {selectionBox && (
+                    <div 
+                        className="absolute border-2 border-blue-400 bg-blue-400/20 z-20"
+                        style={{
+                            left: selectionBox.x,
+                            top: selectionBox.y,
+                            width: selectionBox.width,
+                            height: selectionBox.height
+                        }}
+                    />
+                )}
+
+                {/* Text Selection Controls */}
+                {selectedTextId && selectionBox && (
+                    <div 
+                        className="absolute z-50"
+                        style={{
+                            left: selectionBox.x + selectionBox.width + 10,
+                            top: selectionBox.y - 10
+                        }}
+                    >
+                        <div className="bg-white/90 backdrop-blur-md rounded-lg p-2 border border-white/20 shadow-xl flex space-x-2">
+                            <button
+                                onClick={copySelectedText}
+                                className="p-2 rounded hover:bg-white/20 transition-colors"
+                                title="Copy (Ctrl+C)"
+                            >
+                                <Copy size={16} className="text-gray-700" />
+                            </button>
+                            <button
+                                onClick={deleteSelectedText}
+                                className="p-2 rounded hover:bg-white/20 transition-colors"
+                                title="Delete (Del)"
+                            >
+                                <Trash2 size={16} className="text-gray-700" />
+                            </button>
+                        </div>
+                    </div>
                 )}
 
                 {/* AI Tools Panel */}
@@ -924,12 +1094,12 @@ export function Canvas({
 
                 <div className="absolute bottom-6 left-6">
                     <div className="flex space-x-3">
-                        <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-                            isConnected 
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        }`}>
-                            {isConnected ? 'Connected' : 'Disconnected'}
+                    <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                        isConnected 
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    }`}>
+                        {isConnected ? 'Connected' : 'Disconnected'}
                         </div>
                         
                         {liveAIShape && (
@@ -956,6 +1126,7 @@ export function Canvas({
                             <li>• Click and drag to draw shapes</li>
                             <li>• Use Pencil for freehand sketching</li>
                             <li>• Click Text tool, then click canvas and type</li>
+                            <li>• Click text to select, Ctrl+C to copy, Ctrl+V to paste</li>
                             <li>• Hold Space or right-drag to pan</li>
                             <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
                             <li>• Click AI button for smart features</li>
@@ -963,19 +1134,6 @@ export function Canvas({
                             <li>• Upload images for AI analysis</li>
                         </ul>
                         
-                        {/* Debug Info */}
-                        {textElements.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-white/20">
-                                <h5 className="text-white/70 text-xs font-medium mb-1">Text Elements: {textElements.length}</h5>
-                                <div className="text-white/50 text-xs space-y-1">
-                                    {textElements.map((text, index) => (
-                                        <div key={text.id}>
-                                            "{text.text}" at ({text.x.toFixed(0)}, {text.y.toFixed(0)})
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

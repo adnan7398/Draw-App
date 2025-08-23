@@ -29,6 +29,15 @@ type Shape =
       id: string;
       type: "path";
       points: { x: number; y: number }[];
+    }
+  | {
+      id: string;
+      type: "text";
+      x: number;
+      y: number;
+      text: string;
+      fontSize: number;
+      color: string;
     };
 
 export class Game {
@@ -652,6 +661,26 @@ export class Game {
           const dist = this.distancePointToSegment(x, y, p1.x, p1.y, p2.x, p2.y);
           if (dist <= 6 / this.scale) return shape;
         }
+      } else if (shape.type === "text") {
+        // Check if click is within text bounds
+        const screenPos = this.worldToScreen(shape.x, shape.y);
+        const screenX = (x - this.offsetX) / this.scale;
+        const screenY = (y - this.offsetY) / this.scale;
+        
+        // Create a temporary canvas context to measure text
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d')!;
+        tempCtx.font = `${shape.fontSize}px Arial`;
+        const metrics = tempCtx.measureText(shape.text);
+        const textWidth = metrics.width;
+        const textHeight = shape.fontSize;
+        
+        if (screenX >= shape.x && 
+            screenX <= shape.x + textWidth && 
+            screenY >= shape.y - textHeight && 
+            screenY <= shape.y) {
+          return shape;
+        }
       }
     }
     return null;
@@ -727,6 +756,28 @@ export class Game {
           this.ctx.stroke();
           this.ctx.closePath();
         }
+      } else if (shape.type === "text") {
+        const screenPos = this.worldToScreen(shape.x, shape.y);
+        this.ctx.font = `${shape.fontSize * this.scale}px Arial`;
+        this.ctx.fillStyle = shape.color;
+        this.ctx.textBaseline = "top";
+        this.ctx.fillText(shape.text, screenPos.x, screenPos.y);
+        
+        // Draw selection border for text
+        if (this.selectedShape === shape) {
+          const metrics = this.ctx.measureText(shape.text);
+          const textWidth = metrics.width;
+          const textHeight = shape.fontSize * this.scale;
+          
+          this.ctx.strokeStyle = "#FCD34D";
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeRect(
+            screenPos.x - 2, 
+            screenPos.y - 2, 
+            textWidth + 4, 
+            textHeight + 4
+          );
+        }
       }
     });
 
@@ -763,6 +814,39 @@ export class Game {
         this.clicked = true;
         this.currentPathPoints = [{ x: worldPos.x, y: worldPos.y }];
         this.clearCanvas();
+        return;
+      }
+
+      // Handle text tool
+      if (this.selectedTool === "text") {
+        // Create a new text shape
+        const textShape: Shape = {
+          id: this.generateShapeId(),
+          type: "text",
+          x: worldPos.x,
+          y: worldPos.y,
+          text: "",
+          fontSize: 16,
+          color: "#FFFFFF"
+        };
+        
+        this.historyStack.push([...this.existingShapes]);
+        this.existingShapes.push(textShape);
+        this.selectedShape = textShape;
+        this.clearCanvas();
+        
+        // Send to other users
+        this.socket.send(JSON.stringify({ 
+          type: "draw", 
+          shape: textShape, 
+          roomId: this.roomId 
+        }));
+        
+        // Emit event for text editing
+        this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
+          detail: { shapeId: textShape.id, text: "" } 
+        }));
+        
         return;
       }
 
@@ -940,8 +1024,6 @@ export class Game {
         const dy = worldPos.y - this.dragOffsetY - this.selectedShape.points[0].y;
         this.selectedShape.points = this.selectedShape.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
       }
-
-      // Send edit message to other users with isDragging flag
       this.socket.send(JSON.stringify({
         type: "edit_shape",
         shape: this.selectedShape,
