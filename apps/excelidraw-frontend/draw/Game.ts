@@ -43,7 +43,7 @@ type Shape =
 export class Game {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private existingShapes: Shape[];
+  public existingShapes: Shape[];
   private historyStack: Shape[][] = [];
   private roomId: string;
   private clicked: boolean;
@@ -416,6 +416,39 @@ export class Game {
         }
         return;
       }
+
+      // Handle text tool
+      if (this.selectedTool === "text" as Tool) {
+        // Create a new text shape
+        const textShape: Shape = {
+          id: this.generateShapeId(),
+          type: "text",
+          x: worldPos.x,
+          y: worldPos.y,
+          text: "",
+          fontSize: 16,
+          color: "#FFFFFF"
+        };
+        
+        this.historyStack.push([...this.existingShapes]);
+        this.existingShapes.push(textShape);
+        this.selectedShape = textShape;
+        this.clearCanvas();
+        
+        // Send to other users
+        this.socket.send(JSON.stringify({ 
+          type: "draw", 
+          shape: textShape, 
+          roomId: this.roomId 
+        }));
+        
+        // Emit event for text editing
+        this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
+          detail: { shapeId: textShape.id, text: "" } 
+        }));
+        
+        return;
+      }
       
       const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
       
@@ -437,8 +470,18 @@ export class Game {
         } else if (shape.type === "path") {
           this.dragOffsetX = worldPos.x - shape.points[0].x;
           this.dragOffsetY = worldPos.y - shape.points[0].y;
+        } else if (shape.type === "text") {
+          this.dragOffsetX = worldPos.x - shape.x;
+          this.dragOffsetY = worldPos.y - shape.y;
+          
+          // If text tool is selected, allow editing
+          if (this.selectedTool === "text" as Tool) {
+            this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
+              detail: { shapeId: shape.id, text: shape.text } 
+            }));
+          }
         }
-      } else if (this.selectedTool === "rect" || this.selectedTool === "circle" || this.selectedTool === "line") {
+      } else if (this.selectedTool === "rect" || this.selectedTool === "circle" || this.selectedTool === "line" || this.selectedTool === "text") {
         // For drawing tools, don't start panning - allow drawing
         console.log('Starting drawing with tool:', this.selectedTool);
         this.isDrawingShape = true;
@@ -493,6 +536,9 @@ export class Game {
           const dx = worldPos.x - this.dragOffsetX - this.selectedShape.points[0].x;
           const dy = worldPos.y - this.dragOffsetY - this.selectedShape.points[0].y;
           this.selectedShape.points = this.selectedShape.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+        } else if (this.selectedShape.type === "text") {
+          this.selectedShape.x = worldPos.x - this.dragOffsetX;
+          this.selectedShape.y = worldPos.y - this.dragOffsetY;
         }
         
         this.socket.send(JSON.stringify({
@@ -818,7 +864,7 @@ export class Game {
       }
 
       // Handle text tool
-      if (this.selectedTool === "text") {
+      if (this.selectedTool === "text" as Tool) {
         // Create a new text shape
         const textShape: Shape = {
           id: this.generateShapeId(),
@@ -871,6 +917,16 @@ export class Game {
         } else if (shape.type === "path") {
           this.dragOffsetX = worldPos.x - shape.points[0].x;
           this.dragOffsetY = worldPos.y - shape.points[0].y;
+        } else if (shape.type === "text") {
+          this.dragOffsetX = worldPos.x - shape.x;
+          this.dragOffsetY = worldPos.y - shape.y;
+          
+          // If text tool is selected, allow editing
+          if (this.selectedTool === "text" as Tool) {
+            this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
+              detail: { shapeId: shape.id, text: shape.text } 
+            }));
+          }
         }
       } else {
         this.isDraggingShape = false;

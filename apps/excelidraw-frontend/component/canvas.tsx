@@ -39,15 +39,10 @@ export function Canvas({
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiContext, setAiContext] = useState('');
     
-    // Text Tool State
-    const [textInput, setTextInput] = useState('');
-    const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
+    // Text Tool State - Now integrated with Game.ts
     const [isTyping, setIsTyping] = useState(false);
-    const [textElements, setTextElements] = useState<Array<{id: string, text: string, x: number, y: number, fontSize: number, color: string}>>([]);
-    const [textIdCounter, setTextIdCounter] = useState(0);
-    const [currentTextElement, setCurrentTextElement] = useState<{id: string, text: string, x: number, y: number, fontSize: number, color: string} | null>(null);
-    const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-    const [selectionBox, setSelectionBox] = useState<{x: number, y: number, width: number, height: number} | null>(null);
+    const [currentTextShapeId, setCurrentTextShapeId] = useState<string | null>(null);
+    const [textInput, setTextInput] = useState('');
     
     // Live AI Shape Recognition
     const [liveAIShape, setLiveAIShape] = useState(false);
@@ -116,22 +111,82 @@ export function Canvas({
 
     // Add keyboard event listener for text typing
     useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (isTyping && currentTextShapeId && game) {
+                if (event.key === 'Enter') {
+                    setIsTyping(false);
+                    setCurrentTextShapeId(null);
+                    setTextInput('');
+                } else if (event.key === 'Escape') {
+                    setIsTyping(false);
+                    setCurrentTextShapeId(null);
+                    setTextInput('');
+                    // Remove the text shape if it's empty
+                    if (textInput.trim() === '') {
+                        // Find and remove the empty text shape
+                        const textShape = game.existingShapes.find(shape => 
+                            shape.type === 'text' && shape.id === currentTextShapeId
+                        );
+                        if (textShape) {
+                            game.existingShapes = game.existingShapes.filter(s => s.id !== currentTextShapeId);
+                            game.clearCanvas();
+                            game.socket.send(JSON.stringify({ 
+                                type: "erase", 
+                                shapeId: currentTextShapeId, 
+                                roomId: roomId 
+                            }));
+                        }
+                    }
+                } else if (event.key === 'Backspace') {
+                    setTextInput(prev => prev.slice(0, -1));
+                } else if (event.key.length === 1) {
+                    setTextInput(prev => prev + event.key);
+                }
+            }
+        };
+
         if (isTyping) {
             window.addEventListener('keydown', handleKeyDown);
             return () => window.removeEventListener('keydown', handleKeyDown);
         }
-    }, [isTyping, currentTextElement]);
+    }, [isTyping, currentTextShapeId, textInput, game, roomId]);
 
-    // Add global keyboard shortcuts
+    // Update text shape when typing
     useEffect(() => {
-        window.addEventListener('keydown', handleGlobalKeyDown);
-        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [selectedTextId, canvasSize]);
+        if (isTyping && currentTextShapeId && game) {
+            const textShape = game.existingShapes.find(shape => 
+                shape.type === 'text' && shape.id === currentTextShapeId
+            ) as any;
+            
+            if (textShape) {
+                textShape.text = textInput;
+                game.clearCanvas();
+                game.socket.send(JSON.stringify({
+                    type: "edit_shape",
+                    shape: textShape,
+                    roomId: roomId,
+                    isDragging: false
+                }));
+            }
+        }
+    }, [textInput, isTyping, currentTextShapeId, game, roomId]);
 
-    // Redraw canvas whenever text elements change
+    // Listen for text edit events from Game.ts
     useEffect(() => {
-        redrawCanvas();
-    }, [textElements]);
+        const handleTextEdit = (event: CustomEvent) => {
+            const { shapeId, text } = event.detail;
+            setCurrentTextShapeId(shapeId);
+            setTextInput(text || '');
+            setIsTyping(true);
+        };
+
+        if (canvasRef.current) {
+            canvasRef.current.addEventListener('textEdit', handleTextEdit as EventListener);
+            return () => {
+                canvasRef.current?.removeEventListener('textEdit', handleTextEdit as EventListener);
+            };
+        }
+    }, []);
 
     const handleUndo = () => {
         if (game) {
@@ -354,224 +409,16 @@ export function Canvas({
         img.src = `data:image/png;base64,${cleanedImageBase64}`;
     };
 
-    // Text Tool Functions
+    // Text Tool Functions - Now handled by Game.ts
     const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-        const rect = canvasRef.current!.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        
-        if (selectedTool === 'text') {
-            // Deselect any previously selected text
-            deselectText();
-            
-            setTextPosition({ x, y });
-            setIsTyping(true);
-            
-            // Create a new text element
-            const newTextElement = {
-                id: `text-${textIdCounter}`,
-                text: '',
-                x: x,
-                y: y,
-                fontSize: 16,
-                color: '#FFFFFF'
-            };
-            
-            setCurrentTextElement(newTextElement);
-            setTextElements(prev => [...prev, newTextElement]);
-            setTextIdCounter(prev => prev + 1);
-        } else {
-            // Check if clicked on existing text for selection
-            const clickedText = textElements.find(text => {
-                const ctx = canvasRef.current?.getContext('2d');
-                if (!ctx) return false;
-                
-                const metrics = ctx.measureText(text.text);
-                const textWidth = metrics.width;
-                const textHeight = text.fontSize;
-                
-                return x >= text.x && 
-                       x <= text.x + textWidth && 
-                       y >= text.y - textHeight && 
-                       y <= text.y;
-            });
-            
-            if (clickedText) {
-                selectText(clickedText.id);
-            } else {
-                deselectText();
-            }
-        }
+        // Text tool is now handled by Game.ts
+        // This function is kept for compatibility but doesn't handle text anymore
     };
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-        if (!isTyping || !currentTextElement) return;
-        
-        if (event.key === 'Enter') {
-            // Finish typing
-            setIsTyping(false);
-            setCurrentTextElement(null);
-        } else if (event.key === 'Escape') {
-            // Cancel typing and remove the text element
-            setIsTyping(false);
-            setTextElements(prev => prev.filter(text => text.id !== currentTextElement.id));
-            setCurrentTextElement(null);
-        } else if (event.key === 'Backspace') {
-            // Remove last character
-            setTextElements(prev => prev.map(text => 
-                text.id === currentTextElement.id 
-                    ? { ...text, text: text.text.slice(0, -1) }
-                    : text
-            ));
-        } else if (event.key.length === 1) {
-            // Add character
-            setTextElements(prev => prev.map(text => 
-                text.id === currentTextElement.id 
-                    ? { ...text, text: text.text + event.key }
-                    : text
-            ));
-        }
-    };
+    // Text handling is now integrated with Game.ts
+    // Old text functions removed - text is now handled as shapes
 
-    // Global keyboard shortcuts for text operations
-    const handleGlobalKeyDown = (event: KeyboardEvent) => {
-        // Only handle shortcuts when not typing
-        if (isTyping) return;
-        
-        if (event.ctrlKey || event.metaKey) {
-            switch (event.key) {
-                case 'c':
-                    if (selectedTextId) {
-                        event.preventDefault();
-                        copySelectedText();
-                    }
-                    break;
-                case 'v':
-                    event.preventDefault();
-                    // Paste at center of canvas
-                    const x = canvasSize.width / 2;
-                    const y = canvasSize.height / 2;
-                    pasteText(x, y);
-                    break;
-                case 'x':
-                    if (selectedTextId) {
-                        event.preventDefault();
-                        copySelectedText();
-                        deleteSelectedText();
-                    }
-                    break;
-            }
-        } else if (event.key === 'Delete' || event.key === 'Backspace') {
-            if (selectedTextId) {
-                event.preventDefault();
-                deleteSelectedText();
-            }
-        } else if (event.key === 'Escape') {
-            if (selectedTextId) {
-                deselectText();
-            }
-        }
-    };
-
-    const removeText = (id: string) => {
-        setTextElements(prev => prev.filter(text => text.id !== id));
-    };
-
-    // Text Selection Functions
-    const selectText = (textId: string) => {
-        setSelectedTextId(textId);
-        const textElement = textElements.find(el => el.id === textId);
-        if (textElement) {
-            const ctx = canvasRef.current?.getContext('2d');
-            if (ctx) {
-                const metrics = ctx.measureText(textElement.text);
-                const width = metrics.width;
-                const height = textElement.fontSize;
-                setSelectionBox({
-                    x: textElement.x - 2,
-                    y: textElement.y - textElement.fontSize + 2,
-                    width: width + 4,
-                    height: textElement.fontSize + 4
-                });
-            }
-        }
-    };
-
-    const deselectText = () => {
-        setSelectedTextId(null);
-        setSelectionBox(null);
-    };
-
-    const copySelectedText = () => {
-        if (selectedTextId) {
-            const textElement = textElements.find(el => el.id === selectedTextId);
-            if (textElement) {
-                navigator.clipboard.writeText(textElement.text);
-                // Show copy feedback
-                setTimeout(() => deselectText(), 500);
-            }
-        }
-    };
-
-    const pasteText = (x: number, y: number) => {
-        navigator.clipboard.readText().then(text => {
-            if (text.trim()) {
-                const newId = `text_${textIdCounter + 1}`;
-                const newTextElement = {
-                    id: newId,
-                    text: text,
-                    x: x,
-                    y: y,
-                    fontSize: 16,
-                    color: '#FFFFFF'
-                };
-                setTextElements(prev => [...prev, newTextElement]);
-                setTextIdCounter(prev => prev + 1);
-            }
-        }).catch(err => console.log('Failed to read clipboard'));
-    };
-
-    const deleteSelectedText = () => {
-        if (selectedTextId) {
-            setTextElements(prev => prev.filter(el => el.id !== selectedTextId));
-            deselectText();
-        }
-    };
-
-    const drawTextElements = () => {
-        if (!canvasRef.current) return;
-        
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-        
-        textElements.forEach(textElement => {
-            if (textElement.text.trim()) { // Only draw if text has content
-                ctx.font = `${textElement.fontSize}px Arial`;
-                ctx.fillStyle = textElement.color;
-                ctx.fillText(textElement.text, textElement.x, textElement.y);
-            }
-        });
-    };
-
-    // Function to redraw canvas with all elements
-    const redrawCanvas = () => {
-        if (!canvasRef.current) return;
-        
-        const ctx = canvasRef.current.getContext('2d');
-        if (!ctx) return;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        
-        // Redraw all text elements
-        drawTextElements();
-        
-        // Trigger game redraw if available
-        if (game) {
-            // Force a redraw of the game canvas
-            console.log('Canvas redrawn with text elements');
-        }
-    };
+    // Text functions removed - now handled by Game.ts as shapes
 
     return (
         <div className="h-screen bg-gray-900 flex flex-col">
@@ -687,57 +534,7 @@ export function Canvas({
                     </div>
                 )}
 
-                {/* Text Cursor Indicator */}
-                {isTyping && currentTextElement && (
-                    <div 
-                        className="absolute w-0.5 h-6 bg-white animate-pulse z-30"
-                        style={{
-                            left: currentTextElement.x + 6,
-                            top: currentTextElement.y - 20
-                        }}
-                    />
-                )}
-
-                {/* Text Selection Box */}
-                {selectionBox && (
-                    <div 
-                        className="absolute border-2 border-blue-400 bg-blue-400/20 z-20"
-                        style={{
-                            left: selectionBox.x,
-                            top: selectionBox.y,
-                            width: selectionBox.width,
-                            height: selectionBox.height
-                        }}
-                    />
-                )}
-
-                {/* Text Selection Controls */}
-                {selectedTextId && selectionBox && (
-                    <div 
-                        className="absolute z-50"
-                        style={{
-                            left: selectionBox.x + selectionBox.width + 10,
-                            top: selectionBox.y - 10
-                        }}
-                    >
-                        <div className="bg-white/90 backdrop-blur-md rounded-lg p-2 border border-white/20 shadow-xl flex space-x-2">
-                            <button
-                                onClick={copySelectedText}
-                                className="p-2 rounded hover:bg-white/20 transition-colors"
-                                title="Copy (Ctrl+C)"
-                            >
-                                <Copy size={16} className="text-gray-700" />
-                            </button>
-                            <button
-                                onClick={deleteSelectedText}
-                                className="p-2 rounded hover:bg-white/20 transition-colors"
-                                title="Delete (Del)"
-                            >
-                                <Trash2 size={16} className="text-gray-700" />
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {/* Text editing is now handled by Game.ts */}
 
                 {/* AI Tools Panel */}
                 {showAIPanel && (
@@ -934,36 +731,7 @@ export function Canvas({
                                 </div>
                             </div>
 
-                            {/* Text Management Section */}
-                            <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                                <h4 className="text-white font-medium mb-3 flex items-center">
-                                    <Type className="w-5 h-5 mr-2" />
-                                    Text Elements ({textElements.length})
-                                </h4>
-                                
-                                {textElements.length === 0 ? (
-                                    <p className="text-white/50 text-sm">No text elements added yet. Use the Text tool to add labels.</p>
-                                ) : (
-                                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                                        {textElements.map((textElement) => (
-                                            <div key={textElement.id} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
-                                                <div className="flex-1">
-                                                    <span className="text-white text-sm">{textElement.text}</span>
-                                                    <span className="text-white/50 text-xs ml-2">
-                                                        ({textElement.x.toFixed(0)}, {textElement.y.toFixed(0)})
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={() => removeText(textElement.id)}
-                                                    className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs hover:bg-red-500/30 transition-colors"
-                                                >
-                                                    Remove
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+                            {/* Text elements are now managed as shapes in Game.ts */}
 
                             {/* Quick Actions */}
                             <div className="flex justify-center space-x-4">

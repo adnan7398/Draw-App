@@ -42,7 +42,7 @@ export async function getExistingShapes(roomId: string) {
             typeof shape === 'object' && 
             shape.type && 
             shape.id &&
-            (shape.type === "rect" || shape.type === "circle" || shape.type === "line" || shape.type === "path")
+            (shape.type === "rect" || shape.type === "circle" || shape.type === "line" || shape.type === "path" || shape.type === "text")
         );
     } catch (error) {
         console.error("Error fetching existing shapes:", error);
