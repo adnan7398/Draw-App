@@ -1,6 +1,36 @@
 import { Tool } from "@/component/Canvas";
 import { getExistingShapes } from "./http";
 
+// Styling types
+type GradientType = "linear" | "radial" | "none";
+type StrokePattern = "solid" | "dashed" | "dotted" | "dash-dot";
+
+interface Gradient {
+  type: GradientType;
+  colors: string[];
+  stops: number[];
+  angle?: number; // For linear gradients
+  centerX?: number; // For radial gradients
+  centerY?: number; // For radial gradients
+}
+
+interface StrokeStyle {
+  type: StrokePattern;
+  width: number;
+  dashArray?: number[]; // For custom patterns
+}
+
+interface ShapeStyle {
+  fillColor: string;
+  strokeColor: string;
+  strokeWidth: number;
+  strokeStyle: StrokeStyle;
+  opacity: number;
+  gradient?: Gradient;
+  textColor?: string;
+  designColor?: string;
+}
+
 type Shape =
   | {
       id: string;
@@ -9,6 +39,7 @@ type Shape =
       y: number;
       width: number;
       height: number;
+      style?: ShapeStyle;
     }
   | {
       id: string;
@@ -16,6 +47,7 @@ type Shape =
       centerX: number;
       centerY: number;
       radius: number;
+      style?: ShapeStyle;
     }
   | {
       id: string;
@@ -24,11 +56,13 @@ type Shape =
       startY: number;
       endX: number;
       endY: number;
+      style?: ShapeStyle;
     }
   | {
       id: string;
       type: "path";
       points: { x: number; y: number }[];
+      style?: ShapeStyle;
     }
   | {
       id: string;
@@ -38,6 +72,7 @@ type Shape =
       text: string;
       fontSize: number;
       color: string;
+      style?: ShapeStyle;
     };
 
 export class Game {
@@ -63,6 +98,8 @@ export class Game {
   private resizeStartX: number = 0;
   private resizeStartY: number = 0;
   private originalShape: Shape | null = null;
+  private cursorBlink: boolean = true;
+  private cursorBlinkInterval: NodeJS.Timeout | null = null;
   
   // Infinite scrolling properties
   private isPanning: boolean = false;
@@ -85,6 +122,26 @@ export class Game {
   
   // Touch drawing state
   private isDrawingShape: boolean = false;
+  
+  // Palm scrolling and clipboard state
+  private isPalmScrolling: boolean = false;
+  private palmScrollStartX: number = 0;
+  private palmScrollStartY: number = 0;
+  private clipboardShapes: Shape[] = [];
+  private clipboardOffsetX: number = 0;
+  private clipboardOffsetY: number = 0;
+  private isPasting: boolean = false;
+  
+  // Styling state
+  private currentStyle: ShapeStyle = {
+    fillColor: "#FFFFFF",
+    strokeColor: "#000000",
+    strokeWidth: 2,
+    strokeStyle: { type: "solid", width: 2 },
+    opacity: 1
+  };
+  private layers: { id: string; name: string; visible: boolean; shapes: Shape[] }[] = [];
+  private activeLayerId: string = "default";
 
   socket: WebSocket;
 
@@ -332,6 +389,252 @@ export class Game {
     console.log('Created test shape:', testShape);
   }
 
+  // Start cursor blinking
+  startCursorBlink() {
+    if (this.cursorBlinkInterval) {
+      clearInterval(this.cursorBlinkInterval);
+    }
+    this.cursorBlink = true;
+    this.cursorBlinkInterval = setInterval(() => {
+      this.cursorBlink = !this.cursorBlink;
+      this.clearCanvas();
+    }, 500); // Blink every 500ms
+  }
+
+  // Stop cursor blinking
+  stopCursorBlink() {
+    if (this.cursorBlinkInterval) {
+      clearInterval(this.cursorBlinkInterval);
+      this.cursorBlinkInterval = null;
+    }
+    this.cursorBlink = false;
+  }
+
+  // Copy selected shapes to clipboard
+  copyShapes() {
+    if (this.selectedShape) {
+      this.clipboardShapes = [JSON.parse(JSON.stringify(this.selectedShape))];
+      console.log('Copied shape to clipboard:', this.selectedShape.type);
+    }
+  }
+
+  // Cut selected shapes (copy and delete)
+  cutShapes() {
+    if (this.selectedShape) {
+      this.copyShapes();
+      this.existingShapes = this.existingShapes.filter(shape => shape.id !== this.selectedShape!.id);
+      this.selectedShape = null;
+      this.clearCanvas();
+      console.log('Cut shape from canvas');
+    }
+  }
+
+  // Paste shapes from clipboard
+  pasteShapes(x: number, y: number) {
+    if (this.clipboardShapes.length === 0) return;
+    
+    this.isPasting = true;
+    const pastedShapes: Shape[] = [];
+    
+    this.clipboardShapes.forEach(shape => {
+      const newShape = JSON.parse(JSON.stringify(shape));
+      newShape.id = this.generateShapeId();
+      
+      // Calculate offset for pasting
+      if (pastedShapes.length === 0) {
+        if (shape.type === "rect" || shape.type === "text") {
+          this.clipboardOffsetX = x - (shape as any).x;
+          this.clipboardOffsetY = y - (shape as any).y;
+        } else if (shape.type === "circle") {
+          this.clipboardOffsetX = x - (shape as any).centerX;
+          this.clipboardOffsetY = y - (shape as any).centerY;
+        } else if (shape.type === "line") {
+          this.clipboardOffsetX = x - (shape as any).startX;
+          this.clipboardOffsetY = y - (shape as any).startY;
+        } else if (shape.type === "path") {
+          this.clipboardOffsetX = x - (shape as any).points[0].x;
+          this.clipboardOffsetY = y - (shape as any).points[0].y;
+        }
+      }
+      
+      // Apply offset
+      if (shape.type === "rect") {
+        newShape.x = x - this.clipboardOffsetX;
+        newShape.y = y - this.clipboardOffsetY;
+      } else if (shape.type === "circle") {
+        newShape.centerX = x - this.clipboardOffsetX;
+        newShape.centerY = y - this.clipboardOffsetY;
+      } else if (shape.type === "line") {
+        const dx = x - this.clipboardOffsetX - shape.startX;
+        const dy = y - this.clipboardOffsetY - shape.startY;
+        newShape.startX += dx;
+        newShape.startY += dy;
+        newShape.endX += dx;
+        newShape.endY += dy;
+      } else if (shape.type === "text") {
+        newShape.x = x - this.clipboardOffsetX;
+        newShape.y = y - this.clipboardOffsetY;
+      } else if (shape.type === "path") {
+        const dx = x - this.clipboardOffsetX - shape.points[0].x;
+        const dy = y - this.clipboardOffsetY - shape.points[0].y;
+        newShape.points = shape.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+      }
+      
+      pastedShapes.push(newShape);
+      this.existingShapes.push(newShape);
+    });
+    
+    this.selectedShape = pastedShapes[0];
+    this.clearCanvas();
+    
+    // Send pasted shapes to other users
+    pastedShapes.forEach(shape => {
+      this.socket.send(JSON.stringify({
+        type: "draw",
+        shape: shape,
+        roomId: this.roomId
+      }));
+    });
+    
+    console.log('Pasted', pastedShapes.length, 'shapes');
+    this.isPasting = false;
+  }
+
+  // Detect palm gesture (3+ fingers)
+  private isPalmGesture(touches: TouchList): boolean {
+    return touches.length >= 3;
+  }
+
+  // Styling methods
+  setFillColor(color: string) {
+    this.currentStyle.fillColor = color;
+  }
+
+  setStrokeColor(color: string) {
+    this.currentStyle.strokeColor = color;
+  }
+
+  setStrokeWidth(width: number) {
+    this.currentStyle.strokeWidth = width;
+    this.currentStyle.strokeStyle.width = width;
+  }
+
+  setStrokeStyle(pattern: StrokePattern, dashArray?: number[]) {
+    this.currentStyle.strokeStyle = {
+      type: pattern,
+      width: this.currentStyle.strokeWidth,
+      dashArray
+    };
+  }
+
+  setOpacity(opacity: number) {
+    this.currentStyle.opacity = Math.max(0, Math.min(1, opacity));
+  }
+
+  setGradient(gradient: Gradient | undefined) {
+    this.currentStyle.gradient = gradient;
+  }
+
+  setTextColor(color: string) {
+    // Update text color for new text shapes
+    this.currentStyle.textColor = color;
+  }
+
+  setDesignColor(color: string) {
+    // Update design color for UI elements
+    this.currentStyle.designColor = color;
+  }
+
+  getCurrentStyle(): ShapeStyle {
+    return { ...this.currentStyle };
+  }
+
+  // Layer management methods
+  createLayer(name: string): string {
+    const layerId = `layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    this.layers.push({
+      id: layerId,
+      name,
+      visible: true,
+      shapes: []
+    });
+    return layerId;
+  }
+
+  deleteLayer(layerId: string) {
+    this.layers = this.layers.filter(layer => layer.id !== layerId);
+    if (this.activeLayerId === layerId) {
+      this.activeLayerId = this.layers[0]?.id || "default";
+    }
+  }
+
+  setLayerVisibility(layerId: string, visible: boolean) {
+    const layer = this.layers.find(l => l.id === layerId);
+    if (layer) {
+      layer.visible = visible;
+    }
+  }
+
+  setActiveLayer(layerId: string) {
+    this.activeLayerId = layerId;
+  }
+
+  getLayers() {
+    return this.layers.map(layer => ({
+      id: layer.id,
+      name: layer.name,
+      visible: layer.visible,
+      shapeCount: layer.shapes.length
+    }));
+  }
+
+  // Apply gradient to canvas context
+  private applyGradient(ctx: CanvasRenderingContext2D, shape: Shape, gradient: Gradient): CanvasGradient | null {
+    if (gradient.type === "linear" && gradient.angle !== undefined) {
+      const angle = gradient.angle * Math.PI / 180;
+      const x1 = Math.cos(angle) * -50;
+      const y1 = Math.sin(angle) * -50;
+      const x2 = Math.cos(angle) * 50;
+      const y2 = Math.sin(angle) * 50;
+      
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      gradient.colors.forEach((color, index) => {
+        grad.addColorStop(gradient.stops[index] || 0, color);
+      });
+      return grad;
+    } else if (gradient.type === "radial") {
+      const centerX = gradient.centerX || 0;
+      const centerY = gradient.centerY || 0;
+      const radius = 50;
+      
+      const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+      gradient.colors.forEach((color, index) => {
+        grad.addColorStop(gradient.stops[index] || 0, color);
+      });
+      return grad;
+    }
+    return null;
+  }
+
+  // Apply stroke style to canvas context
+  private applyStrokeStyle(ctx: CanvasRenderingContext2D, strokeStyle: StrokeStyle) {
+    ctx.lineWidth = strokeStyle.width;
+    
+    switch (strokeStyle.type) {
+      case "dashed":
+        ctx.setLineDash([strokeStyle.width * 2, strokeStyle.width]);
+        break;
+      case "dotted":
+        ctx.setLineDash([strokeStyle.width, strokeStyle.width]);
+        break;
+      case "dash-dot":
+        ctx.setLineDash([strokeStyle.width * 3, strokeStyle.width, strokeStyle.width, strokeStyle.width]);
+        break;
+      default:
+        ctx.setLineDash([]);
+    }
+  }
+
   async init() {
     try {
       this.existingShapes = await getExistingShapes(this.roomId);
@@ -362,7 +665,7 @@ export class Game {
   }
 
   // Convert screen coordinates to world coordinates
-  private screenToWorld(screenX: number, screenY: number): { x: number, y: number } {
+  public screenToWorld(screenX: number, screenY: number): { x: number, y: number } {
     return {
       x: (screenX - this.offsetX) / this.scale,
       y: (screenY - this.offsetY) / this.scale
@@ -566,6 +869,28 @@ export class Game {
             this.canvas.dispatchEvent(new CustomEvent('toggleQuickTips'));
           }
           break;
+        case "c":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.copyShapes();
+          }
+          break;
+        case "x":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.cutShapes();
+          }
+          break;
+        case "v":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            // Paste at center of viewport
+            const centerX = this.viewportWidth / 2;
+            const centerY = this.viewportHeight / 2;
+            const worldPos = this.screenToWorld(centerX, centerY);
+            this.pasteShapes(worldPos.x, worldPos.y);
+          }
+          break;
       }
     };
 
@@ -594,6 +919,18 @@ export class Game {
   touchStartHandler = (e: TouchEvent) => {
     e.preventDefault();
     console.log('Touch start:', e.touches.length, 'touches');
+    
+    // Handle palm scrolling (3+ fingers)
+    if (this.isPalmGesture(e.touches)) {
+      this.isPalmScrolling = true;
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      this.palmScrollStartX = touch.clientX - rect.left;
+      this.palmScrollStartY = touch.clientY - rect.top;
+      this.canvas.style.cursor = "grab";
+      console.log('Palm scrolling started');
+      return;
+    }
     
     if (e.touches.length === 1) {
       const touch = e.touches[0];
@@ -662,6 +999,9 @@ export class Game {
           detail: { shapeId: textShape.id, text: "" } 
         }));
         
+        // Start cursor blinking
+        this.startCursorBlink();
+        
         return;
       }
       
@@ -721,6 +1061,22 @@ export class Game {
 
   touchMoveHandler = (e: TouchEvent) => {
     e.preventDefault();
+    
+    // Handle palm scrolling
+    if (this.isPalmScrolling && this.isPalmGesture(e.touches)) {
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      const deltaX = x - this.palmScrollStartX;
+      const deltaY = y - this.palmScrollStartY;
+      this.pan(deltaX, deltaY);
+      this.palmScrollStartX = x;
+      this.palmScrollStartY = y;
+      return;
+    }
+    
     if (e.touches.length === 1) {
       const touch = e.touches[0];
       const rect = this.canvas.getBoundingClientRect();
@@ -812,6 +1168,14 @@ export class Game {
     this.clicked = false;
     this.isPanning = false;
     
+    // Finish palm scrolling
+    if (this.isPalmScrolling) {
+      this.isPalmScrolling = false;
+      this.canvas.style.cursor = "crosshair";
+      console.log('Palm scrolling ended');
+      return;
+    }
+    
     // Finish resizing
     if (this.isResizing) {
       this.isResizing = false;
@@ -884,7 +1248,8 @@ export class Game {
           x: startWorldPos.x,
           y: startWorldPos.y,
           width: Math.abs(width),
-          height: Math.abs(height)
+          height: Math.abs(height),
+          style: { ...this.currentStyle }
         };
       } else if (this.selectedTool === "circle") {
         const radius = Math.sqrt(width * width + height * height) / 2;
@@ -893,7 +1258,8 @@ export class Game {
           type: "circle",
           centerX: startWorldPos.x + width / 2,
           centerY: startWorldPos.y + height / 2,
-          radius
+          radius,
+          style: { ...this.currentStyle }
         };
       } else if (this.selectedTool === "line") {
         shape = {
@@ -902,7 +1268,8 @@ export class Game {
           startX: startWorldPos.x,
           startY: startWorldPos.y,
           endX: endWorldPos.x,
-          endY: endWorldPos.y
+          endY: endWorldPos.y,
+          style: { ...this.currentStyle }
         };
       }
       
@@ -1022,26 +1389,58 @@ export class Game {
     );
     
     validShapes.forEach((shape) => {
-      this.ctx.strokeStyle = this.selectedShape === shape ? "#FCD34D" : "#FFFFFF"; // Yellow for selected, white for others
-      this.ctx.lineWidth = this.selectedShape === shape ? 3 : 2;
+      // Apply shape styling
+      const style = shape.style || this.currentStyle;
+      this.ctx.globalAlpha = style.opacity;
       
-      // Add selection indicator
+      // Apply stroke style
       if (this.selectedShape === shape) {
+        this.ctx.strokeStyle = "#FCD34D"; // Yellow for selected
+        this.ctx.lineWidth = 3;
         this.ctx.setLineDash([5, 5]);
       } else {
-        this.ctx.setLineDash([]);
+        this.ctx.strokeStyle = style.strokeColor;
+        this.ctx.lineWidth = style.strokeWidth;
+        this.applyStrokeStyle(this.ctx, style.strokeStyle);
       }
 
       if (shape.type === "rect") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
         const screenWidth = shape.width * this.scale;
         const screenHeight = shape.height * this.scale;
+        
+        // Apply gradient or solid fill
+        if (style.gradient && style.gradient.type !== "none") {
+          const gradient = this.applyGradient(this.ctx, shape, style.gradient);
+          if (gradient) {
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+          }
+        } else {
+          this.ctx.fillStyle = style.fillColor;
+          this.ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+        }
+        
         this.ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
       } else if (shape.type === "circle") {
         const screenPos = this.worldToScreen(shape.centerX, shape.centerY);
         const screenRadius = Math.abs(shape.radius) * this.scale;
+        
         this.ctx.beginPath();
         this.ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+        
+        // Apply gradient or solid fill
+        if (style.gradient && style.gradient.type !== "none") {
+          const gradient = this.applyGradient(this.ctx, shape, style.gradient);
+          if (gradient) {
+            this.ctx.fillStyle = gradient;
+            this.ctx.fill();
+          }
+        } else {
+          this.ctx.fillStyle = style.fillColor;
+          this.ctx.fill();
+        }
+        
         this.ctx.stroke();
         this.ctx.closePath();
       } else if (shape.type === "line") {
@@ -1066,8 +1465,14 @@ export class Game {
         }
       } else if (shape.type === "text") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
-        this.ctx.font = `${shape.fontSize * this.scale}px Arial`;
-        this.ctx.fillStyle = shape.color;
+        // Keep text size consistent regardless of zoom level
+        const baseFontSize = shape.fontSize || 16;
+        const adjustedFontSize = Math.max(12, baseFontSize / this.scale);
+        this.ctx.font = `${adjustedFontSize}px Arial`;
+        
+        // Use text color from style or fallback to shape color
+        const textColor = shape.style?.textColor || shape.color || "#000000";
+        this.ctx.fillStyle = textColor;
         this.ctx.textBaseline = "top";
         this.ctx.fillText(shape.text, screenPos.x, screenPos.y);
         
@@ -1085,6 +1490,21 @@ export class Game {
             textWidth + 4, 
             textHeight + 4
           );
+          
+          // Draw text cursor if typing and blinking
+          if (this.selectedTool === "text" && this.cursorBlink) {
+            const cursorX = screenPos.x + metrics.width;
+            const cursorY = screenPos.y;
+            const cursorHeight = textHeight;
+            
+            this.ctx.strokeStyle = "#FFFFFF"; // White cursor
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([]); // Solid line
+            this.ctx.beginPath();
+            this.ctx.moveTo(cursorX, cursorY);
+            this.ctx.lineTo(cursorX, cursorY + cursorHeight);
+            this.ctx.stroke();
+          }
         }
       }
     });
@@ -1110,7 +1530,7 @@ export class Game {
       
       console.log('Drawing', handles.length, 'resize handles for', this.selectedShape.type);
       
-      this.ctx.fillStyle = "#FF6B6B"; // Red handles for better visibility
+      this.ctx.fillStyle = "#4ECDC4"; // Teal handles for better visibility (less pinkish)
       this.ctx.strokeStyle = "#FFFFFF"; // White border
       this.ctx.lineWidth = 2;
       
@@ -1118,6 +1538,29 @@ export class Game {
         this.ctx.fillRect(handle.x, handle.y, handle.width, handle.height);
         this.ctx.strokeRect(handle.x, handle.y, handle.width, handle.height);
       });
+    }
+
+    // Draw palm scrolling indicator
+    if (this.isPalmScrolling) {
+      this.ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      
+      this.ctx.fillStyle = "#FFFFFF";
+      this.ctx.font = "24px Arial";
+      this.ctx.textAlign = "center";
+      this.ctx.fillText("Palm Scrolling Active", this.canvas.width / 2, this.canvas.height / 2);
+    }
+
+    // Draw clipboard indicator
+    if (this.clipboardShapes.length > 0) {
+      this.ctx.fillStyle = "rgba(76, 205, 196, 0.2)";
+      this.ctx.fillRect(10, 10, 200, 40);
+      
+      this.ctx.fillStyle = "#4ECDC4";
+      this.ctx.font = "14px Arial";
+      this.ctx.textAlign = "left";
+      this.ctx.fillText(`Clipboard: ${this.clipboardShapes.length} shape(s)`, 20, 30);
+      this.ctx.fillText("Ctrl+V to paste", 20, 50);
     }
   }
 
@@ -1151,7 +1594,8 @@ export class Game {
           y: worldPos.y,
           text: "",
           fontSize: 16,
-          color: "#FFFFFF"
+          color: this.currentStyle.textColor || "#000000",
+          style: { ...this.currentStyle }
         };
         
         this.historyStack.push([...this.existingShapes]);
@@ -1170,6 +1614,9 @@ export class Game {
         this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
           detail: { shapeId: textShape.id, text: "" } 
         }));
+        
+        // Start cursor blinking
+        this.startCursorBlink();
         
         return;
       }

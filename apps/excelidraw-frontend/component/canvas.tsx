@@ -1,7 +1,7 @@
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2 } from "lucide-react";
+import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2, Layers, Eye, EyeOff, Droplets } from "lucide-react";
 import { Game } from "@/draw/Game";
 import { getMLBackendUrl } from "@/config";
 
@@ -52,12 +52,49 @@ export function Canvas({
     
     // UI State
     const [showQuickTips, setShowQuickTips] = useState(true);
+    
+    // Styling State
+    const [showStylingPanel, setShowStylingPanel] = useState(false);
+    const [showLayersPanel, setShowLayersPanel] = useState(false);
+    const [fillColor, setFillColor] = useState("#FFFFFF");
+    const [strokeColor, setStrokeColor] = useState("#000000");
+    const [strokeWidth, setStrokeWidth] = useState(2);
+    const [opacity, setOpacity] = useState(1);
+    const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted" | "dash-dot">("solid");
+    const [gradientType, setGradientType] = useState<"none" | "linear" | "radial">("none");
+    const [gradientColors, setGradientColors] = useState(["#FF6B6B", "#4ECDC4"]);
+    const [textColor, setTextColor] = useState("#000000");
+    const [designColor, setDesignColor] = useState("#1E293B");
 
     const mlBackendUrl = getMLBackendUrl();
 
     useEffect(() => {
         game?.setTool(selectedTool);
     }, [selectedTool, game]);
+
+    // Styling effects
+    useEffect(() => {
+        if (game) {
+            game.setFillColor(fillColor);
+            game.setStrokeColor(strokeColor);
+            game.setStrokeWidth(strokeWidth);
+            game.setOpacity(opacity);
+            game.setStrokeStyle(strokeStyle);
+            game.setTextColor(textColor);
+            game.setDesignColor(designColor);
+            
+            if (gradientType !== "none") {
+                game.setGradient({
+                    type: gradientType,
+                    colors: gradientColors,
+                    stops: [0, 1],
+                    angle: 45
+                });
+            } else {
+                game.setGradient(undefined);
+            }
+        }
+    }, [game, fillColor, strokeColor, strokeWidth, opacity, strokeStyle, gradientType, gradientColors, textColor, designColor]);
 
     useEffect(() => {
         if (canvasRef.current) {
@@ -80,6 +117,7 @@ export function Canvas({
 
             return () => {
                 g.destroy();
+                g.stopCursorBlink();
                 canvasRef.current?.removeEventListener('toggleQuickTips', handleToggleQuickTips);
             }
         }
@@ -128,10 +166,16 @@ export function Canvas({
                     setIsTyping(false);
                     setCurrentTextShapeId(null);
                     setTextInput('');
+                    if (game) {
+                        game.stopCursorBlink();
+                    }
                 } else if (event.key === 'Escape') {
                     setIsTyping(false);
                     setCurrentTextShapeId(null);
                     setTextInput('');
+                    if (game) {
+                        game.stopCursorBlink();
+                    }
                     // Remove the text shape if it's empty
                     if (textInput.trim() === '') {
                         // Find and remove the empty text shape
@@ -189,6 +233,9 @@ export function Canvas({
             setCurrentTextShapeId(shapeId);
             setTextInput(text || '');
             setIsTyping(true);
+            if (game) {
+                game.startCursorBlink();
+            }
         };
 
         if (canvasRef.current) {
@@ -197,7 +244,7 @@ export function Canvas({
                 canvasRef.current?.removeEventListener('textEdit', handleTextEdit as EventListener);
             };
         }
-    }, []);
+    }, [game]);
 
     const handleUndo = () => {
         if (game) {
@@ -485,6 +532,56 @@ export function Canvas({
                             title="Undo (Ctrl+Z)"
                         >
                             <Undo2 size={18} />
+                        </button>
+                        <button
+                            onClick={() => game?.copyShapes()}
+                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            title="Copy (Ctrl+C)"
+                        >
+                            <Copy size={18} />
+                        </button>
+                        <button
+                            onClick={() => game?.cutShapes()}
+                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            title="Cut (Ctrl+X)"
+                        >
+                            <Trash2 size={18} />
+                        </button>
+                        <button
+                            onClick={() => {
+                                const centerX = window.innerWidth / 2;
+                                const centerY = window.innerHeight / 2;
+                                if (game) {
+                                    const worldPos = game.screenToWorld(centerX, centerY);
+                                    game.pasteShapes(worldPos.x, worldPos.y);
+                                }
+                            }}
+                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            title="Paste (Ctrl+V)"
+                        >
+                            <DownloadIcon size={18} />
+                        </button>
+                        <button
+                            onClick={() => setShowStylingPanel(!showStylingPanel)}
+                            className={`p-2 rounded-lg transition-colors ${
+                                showStylingPanel 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                            }`}
+                            title="Styling Panel"
+                        >
+                            <Palette size={18} />
+                        </button>
+                        <button
+                            onClick={() => setShowLayersPanel(!showLayersPanel)}
+                            className={`p-2 rounded-lg transition-colors ${
+                                showLayersPanel 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                            }`}
+                            title="Layers Panel"
+                        >
+                            <Layers size={18} />
                         </button>
                         <button
                             onClick={handleRedo}
@@ -852,18 +949,297 @@ export function Canvas({
                     </div>
                 </div>
 
-                <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
+                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 space-y-4">
+                    {/* Styling Panel */}
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-xl min-w-[280px]">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                                Styling
+                            </h3>
+                            <button
+                                onClick={() => setShowStylingPanel(!showStylingPanel)}
+                                className="text-white/60 hover:text-white/80 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        
+                        {showStylingPanel && (
+                            <div className="space-y-4">
+                                {/* Fill Color */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Fill Color</label>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="color"
+                                            value={fillColor}
+                                            onChange={(e) => setFillColor(e.target.value)}
+                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={fillColor}
+                                            onChange={(e) => setFillColor(e.target.value)}
+                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            placeholder="#FFFFFF"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Stroke Color */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Stroke Color</label>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="color"
+                                            value={strokeColor}
+                                            onChange={(e) => setStrokeColor(e.target.value)}
+                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={strokeColor}
+                                            onChange={(e) => setStrokeColor(e.target.value)}
+                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            placeholder="#000000"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Stroke Width */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Stroke Width: {strokeWidth}px</label>
+                                    <input
+                                        type="range"
+                                        min="1"
+                                        max="20"
+                                        value={strokeWidth}
+                                        onChange={(e) => setStrokeWidth(Number(e.target.value))}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                {/* Opacity */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Opacity: {Math.round(opacity * 100)}%</label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.1"
+                                        value={opacity}
+                                        onChange={(e) => setOpacity(Number(e.target.value))}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                {/* Stroke Style */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Stroke Style</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {["solid", "dashed", "dotted", "dash-dot"].map((style) => (
+                                            <button
+                                                key={style}
+                                                onClick={() => setStrokeStyle(style as any)}
+                                                className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
+                                                    strokeStyle === style
+                                                        ? 'bg-blue-600 text-white'
+                                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                                }`}
+                                            >
+                                                {style}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Text Color */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Text Color</label>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="color"
+                                            value={textColor}
+                                            onChange={(e) => setTextColor(e.target.value)}
+                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={textColor}
+                                            onChange={(e) => setTextColor(e.target.value)}
+                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            placeholder="#000000"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Design Color */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Design Color</label>
+                                    <div className="flex items-center space-x-2">
+                                        <input
+                                            type="color"
+                                            value={designColor}
+                                            onChange={(e) => setDesignColor(e.target.value)}
+                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={designColor}
+                                            onChange={(e) => setDesignColor(e.target.value)}
+                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            placeholder="#1E293B"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Gradient */}
+                                <div>
+                                    <label className="text-white/70 text-xs mb-2 block">Gradient</label>
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {["none", "linear", "radial"].map((type) => (
+                                                <button
+                                                    key={type}
+                                                    onClick={() => setGradientType(type as any)}
+                                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                                        gradientType === type
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                                    }`}
+                                                >
+                                                    {type}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        
+                                        {gradientType !== "none" && (
+                                            <div className="space-y-2">
+                                                {gradientColors.map((color, index) => (
+                                                    <div key={index} className="flex items-center space-x-2">
+                                                        <input
+                                                            type="color"
+                                                            value={color}
+                                                            onChange={(e) => {
+                                                                const newColors = [...gradientColors];
+                                                                newColors[index] = e.target.value;
+                                                                setGradientColors(newColors);
+                                                            }}
+                                                            className="w-6 h-6 rounded border border-white/20 cursor-pointer"
+                                                        />
+                                                        <span className="text-white/70 text-xs">Stop {index + 1}</span>
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    onClick={() => setGradientColors([...gradientColors, "#FFFFFF"])}
+                                                    className="w-full px-2 py-1 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
+                                                >
+                                                    Add Color Stop
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Layers Panel */}
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-xl min-w-[280px]">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                                Layers
+                            </h3>
+                            <button
+                                onClick={() => setShowLayersPanel(!showLayersPanel)}
+                                className="text-white/60 hover:text-white/80 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        
+                        {showLayersPanel && (
+                            <div className="space-y-2">
+                                <button
+                                    onClick={() => game?.createLayer("New Layer")}
+                                    className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                                >
+                                    Add Layer
+                                </button>
+                                
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
+                                    {game?.getLayers().map((layer) => (
+                                        <div key={layer.id} className="flex items-center justify-between p-2 bg-white/5 rounded">
+                                            <div className="flex items-center space-x-2">
+                                                <button
+                                                    onClick={() => game?.setLayerVisibility(layer.id, !layer.visible)}
+                                                    className="text-white/70 hover:text-white"
+                                                >
+                                                    {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                                </button>
+                                                <span className="text-white text-sm">{layer.name}</span>
+                                                <span className="text-white/50 text-xs">({layer.shapeCount})</span>
+                                            </div>
+                                            <button
+                                                onClick={() => game?.deleteLayer(layer.id)}
+                                                className="text-red-400 hover:text-red-300"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick Color Palette */}
                     <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
                         <div className="text-center mb-3">
                             <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                                Colors
+                                Fill Colors
                             </h3>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {['#FFFFFF', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8'].map((color) => (
+                        <div className="grid grid-cols-4 gap-2">
+                            {[
+                                '#000000', '#FFFFFF', '#FF6B6B', '#4ECDC4', 
+                                '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+                                '#98D8C8', '#FFA500', '#800080', '#008000',
+                                '#FF0000', '#0000FF', '#FFFF00', '#FFC0CB'
+                            ].map((color) => (
                                 <button
                                     key={color}
-                                    className="w-8 h-8 rounded-lg border-2 border-white/20 hover:scale-110 transition-transform"
+                                    onClick={() => setFillColor(color)}
+                                    className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
+                                        fillColor === color ? 'border-white' : 'border-white/20'
+                                    }`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Text Color Palette */}
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                        <div className="text-center mb-3">
+                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                                Text Colors
+                            </h3>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[
+                                '#000000', '#FFFFFF', '#FF6B6B', '#4ECDC4', 
+                                '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+                                '#98D8C8', '#FFA500', '#800080', '#008000',
+                                '#FF0000', '#0000FF', '#FFFF00', '#FFC0CB'
+                            ].map((color) => (
+                                <button
+                                    key={color}
+                                    onClick={() => setTextColor(color)}
+                                    className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
+                                        textColor === color ? 'border-white' : 'border-white/20'
+                                    }`}
                                     style={{ backgroundColor: color }}
                                     title={color}
                                 />
@@ -916,9 +1292,17 @@ export function Canvas({
                                 <li>• Click and drag to draw shapes</li>
                                 <li>• Use Pencil for freehand sketching</li>
                                 <li>• Click Text tool, then click canvas and type</li>
-                                <li>• Click text to select, Ctrl+C to copy, Ctrl+V to paste</li>
+                                <li>• <strong>3+ fingers for palm scrolling</strong></li>
+                                <li>• <strong>Ctrl+C to copy, Ctrl+X to cut, Ctrl+V to paste</strong></li>
                                 <li>• <strong>Click shapes to see resize handles</strong></li>
                                 <li>• <strong>Drag handles to resize shapes</strong></li>
+                                <li>• <strong>Click Palette button for styling options</strong></li>
+                                <li>• <strong>Click Layers button for layer management</strong></li>
+                                <li>• <strong>Use color picker, gradients, and stroke styles</strong></li>
+                                <li>• <strong>Adjust opacity and stroke width</strong></li>
+                                <li>• <strong>Set text color and design color separately</strong></li>
+                                <li>• <strong>Text size stays consistent when zooming</strong></li>
+                                <li>• <strong>16 colors including black and more options</strong></li>
                                 <li>• <strong>Ctrl+T to create test shape</strong></li>
                                 <li>• <strong>Ctrl+R to debug resize handles</strong></li>
                                 <li>• <strong>Ctrl+H to hide/show tips</strong></li>
