@@ -78,6 +78,60 @@ function App() {
               <p className="text-gray-600">Create diagrams that look like they were drawn by hand.</p>
             </div>
           </div>
+
+          {/* AI Features Section */}
+          <div className="mt-24 bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-8">
+            <div className="text-center mb-8">
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4">AI-Powered Drawing Tools</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">
+                Experience the future of drawing with our advanced AI integration. Analyze, enhance, and generate drawings with cutting-edge machine learning.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <div className="bg-purple-100 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Smart Analysis</h3>
+                <p className="text-gray-600 text-sm">AI-powered analysis of your drawings for composition, style, and technical insights.</p>
+              </div>
+              
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <div className="bg-blue-100 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Style Transfer</h3>
+                <p className="text-gray-600 text-sm">Transform your drawings with artistic styles using advanced neural networks.</p>
+              </div>
+              
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <div className="bg-green-100 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Smart Enhancement</h3>
+                <p className="text-gray-600 text-sm">Automatically enhance image quality with upscaling, denoising, and sharpening.</p>
+              </div>
+            </div>
+            
+            <div className="text-center mt-8">
+              <button 
+                onClick={() => Router.push("/ai-tools")}
+                className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all transform hover:scale-105"
+              >
+                Try AI Tools
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Community Section */}

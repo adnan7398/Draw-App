@@ -5,13 +5,6 @@ export function getHost() {
     return "localhost";
 }
 
-export function getPort() {
-    if (typeof window !== "undefined" && window.location && window.location.port) {
-        return window.location.port;
-    }
-    return "3001"; // Default to 3001 since that's what's running
-}
-
 export function getBackendUrl() {
     return `http://${getHost()}:3002`;
 }
@@ -21,9 +14,13 @@ export function getWsUrl() {
 }
 
 export function getRoomUrl() {
-    return `http://${getHost()}:${getPort()}`;
+    return `http://${getHost()}:3000`;
 }
 
 export function getExileUrl() {
-    return `http://${getHost()}:${getPort()}/canvas`;
+    return `http://${getHost()}:3001/canvas`;
+}
+
+export function getMLBackendUrl() {
+    return `http://${getHost()}:3003`;
 }
