@@ -33,4 +33,4 @@ echo ""
 echo "Press Ctrl+C to stop the service"
 echo ""
 
-python3 -m uvicorn src.main-simple:app --reload --host 0.0.0.0 --port 3003
+python3 -m uvicorn src.main:app --reload --host 0.0.0.0 --port 3003
