@@ -1,6 +1,6 @@
 "use client"
 import React from 'react';
-import { Github, Twitter, Heart, Share2, Lock, Users2, Sparkles, PenTool, Router } from 'lucide-react';
+import { Github, Twitter, Heart, Share2, Lock, Sparkles, PenTool } from 'lucide-react';
 import { useRouter } from "next/navigation";
 
 function App() {

@@ -9,9 +9,9 @@ from PIL import Image
 import torch
 import torch.nn as nn
 from transformers import pipeline
-import easyocr
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import easyocr
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 from typing import List, Dict, Any, Tuple, Optional
 import json
 import io
@@ -219,11 +219,11 @@ class OCRService:
     
     def __init__(self):
         # Initialize EasyOCR for handwriting recognition
-        try:
-            self.reader = easyocr.Reader(['en'])
-        except:
-            self.reader = None
-            print("Warning: EasyOCR not available, OCR features will be limited")
+        # try:
+        #     self.reader = easyocr.Reader(['en'])
+        # except:
+        self.reader = None
+        print("Warning: EasyOCR not available, OCR features will be limited")
     
     def extract_text(self, image: np.ndarray) -> Dict[str, Any]:
         """Extract text from handwritten notes"""

@@ -3,7 +3,7 @@
 import { getWsUrl } from "@/config";
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
-import {Canvas } from "./Canvas";
+import {Canvas } from "./canvas";
 import { Wifi, WifiOff, RefreshCw, AlertCircle } from "lucide-react";
 
 export function RoomCanvas({roomId}: {roomId: string}) {

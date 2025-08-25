@@ -28,8 +28,9 @@ function SignIn() {
   
       alert("You are successfully signed in!");
       router.push(`/room`);
-    } catch (error: any) {
-      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      alert(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

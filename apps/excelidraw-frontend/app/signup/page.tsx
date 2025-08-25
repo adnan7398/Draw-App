@@ -5,16 +5,15 @@ import { PenTool, Mail, Lock, User } from 'lucide-react';
 import { getBackendUrl } from '@/config';
 import { useRouter } from 'next/navigation';
 
-function SignUp() {
+function Home() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [Loading,setLoading]  = useState(false);
+
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
     try {
       const res = await axios.post(`${getBackendUrl()}/signup`,{
@@ -25,10 +24,9 @@ function SignUp() {
       console.log(res.data);
       alert("You are successfully signed up!");
       router.push(`/signin`);
-    } catch (error: any) {
-      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
-    } finally {
-      setLoading(false);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      alert(`Error: ${errorMessage}`);
     }
   };
   return (
@@ -155,4 +153,4 @@ function SignUp() {
   );
 }
 
-export default SignUp;
+export default Home;

@@ -6,14 +6,12 @@ import { PenLine, Brain, Sparkles } from 'lucide-react';
 import axios from 'axios';
 
 function Home() {
-    const Router = useRouter();
+        const Router = useRouter();
     const [name, setName] = useState('');
-    const [Loading,setLoading]  = useState(false);
-    const [roomId, setRoomId] = useState('');
-    const [error, setError] = useState('');
+
     const [slug,setSlug] = useState('');
 
-  const  createRoom =  async (e: React.MouseEvent) => {
+  const  createRoom =  async () => {
     try {
         const token = localStorage.getItem("authToken");
         if (!token) {
@@ -33,13 +31,11 @@ function Home() {
         );
         const roomId = res.data.roomId; 
         console.log(res.data.room);
-        setRoomId(roomId);
         alert(`Room created successfully! Room ID: ${roomId}`);
         Router.push(`${getExileUrl()}/${roomId}`);
-      } catch (error: any) {
-        alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
-      } finally {
-        setLoading(false);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+        alert(`Error: ${errorMessage}`);
       }
     };
     
@@ -55,8 +51,9 @@ function Home() {
         const res  = await axios.get(`${getBackendUrl()}/room/${slug}`);
         console.log("Room Successfully joined",res.data);
         Router.push(`${getExileUrl()}/${slug}`);
-    }catch(error: any){
-      alert(`Error: ${error.response?.data?.message || "Something went wrong"}`);
+    }catch(error: unknown){
+      const errorMessage = error instanceof Error ? error.message : "Something went wrong";
+      alert(`Error: ${errorMessage}`);
     }
   }
 
@@ -121,7 +118,7 @@ function Home() {
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
               />
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
+
             <button
               type="submit"
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"

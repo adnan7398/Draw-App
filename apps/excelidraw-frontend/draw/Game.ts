@@ -1,4 +1,4 @@
-import { Tool } from "@/component/Canvas";
+import { Tool } from "@/component/canvas";
 import { getExistingShapes } from "./http";
 
 // Styling types
@@ -979,7 +979,7 @@ export class Game {
           y: worldPos.y,
           text: "",
           fontSize: 16,
-          color: this.currentStyle.textColor || "#FFFFFF",
+          color: this.currentStyle.textColor || "#1565C0",
           style: { ...this.currentStyle }
         };
         
@@ -1622,7 +1622,7 @@ export class Game {
           y: worldPos.y,
           text: "",
           fontSize: 16,
-          color: this.currentStyle.textColor || "#000000",
+          color: this.currentStyle.textColor || "#1565C0",
           style: { ...this.currentStyle }
         };
         

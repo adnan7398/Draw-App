@@ -1,6 +1,6 @@
 "use client"
 import React from 'react';
-import { ArrowLeft, PenTool, Brain, Shapes, Layout, Type, Sparkles } from 'lucide-react';
+import { ArrowLeft, Brain, Shapes, Layout, Type, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AITools from '../../component/AITools';
 
