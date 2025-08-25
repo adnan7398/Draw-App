@@ -581,32 +581,33 @@ export function Canvas({
     // Text functions removed - now handled by Game.ts as shapes
 
     return (
-        <div className="h-screen bg-white flex flex-col">
-            <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="h-screen bg-white flex flex-col overflow-hidden">
+            {/* Mobile Header */}
+            <div className="bg-white border-b border-gray-200 px-3 py-2 flex-shrink-0">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-                                <PenLine className="w-5 h-5 text-white" />
+                            <div className="w-7 h-7 bg-black rounded-lg flex items-center justify-center">
+                                <PenLine className="w-4 h-4 text-white" />
                             </div>
-                            <h1 className="text-lg font-semibold text-gray-900">Draw-App</h1>
+                            <h1 className="text-base font-semibold text-gray-900">Draw-App</h1>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <div className={`w-3 h-3 rounded-full animate-pulse ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className="text-gray-600 text-sm font-medium">
+                            <div className={`w-2 h-2 rounded-full animate-pulse ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-gray-600 text-xs font-medium">
                                 Room: {roomId}
                             </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                            <Users size={16} />
-                            <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
-                        </div>
                     </div>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 text-gray-600 text-xs">
+                            <Users size={14} />
+                            <span>{participantCount}</span>
+                        </div>
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
-                            className={`px-3 py-1.5 rounded transition-all duration-200 flex items-center space-x-2 ${
+                            className={`p-1.5 rounded transition-all duration-200 ${
                                 showAIPanel 
                                     ? 'bg-gray-900 text-white' 
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
@@ -614,8 +615,343 @@ export function Canvas({
                             title="AI Tools"
                         >
                             <Brain size={16} />
-                            <span className="text-sm">AI</span>
                         </button>
+                        <button
+                            onClick={() => setShowQuickTips(!showQuickTips)}
+                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
+                            title="Quick Tips"
+                        >
+                            <Sparkles size={16} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Canvas Area */}
+            <div className="flex-1 relative overflow-hidden">
+                {/* Canvas */}
+                <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full touch-none"
+                    style={{
+                        cursor: selectedTool === 'pencil' ? 'crosshair' : 'default',
+                        touchAction: 'none',
+                    }}
+                />
+
+                {/* Mobile Toolbar - Bottom */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-gray-200/60 shadow-lg">
+                    <div className="flex items-center space-x-2">
+                        <IconButton
+                            icon={<Pencil size={16} />}
+                            activated={selectedTool === "pencil"}
+                            onClick={() => setSelectedTool("pencil")}
+                            label="Pencil"
+                        />
+                        <IconButton
+                            icon={<RectangleHorizontalIcon size={16} />}
+                            activated={selectedTool === "rect"}
+                            onClick={() => setSelectedTool("rect")}
+                            label="Rectangle"
+                        />
+                        <IconButton
+                            icon={<Circle size={16} />}
+                            activated={selectedTool === "circle"}
+                            onClick={() => setSelectedTool("circle")}
+                            label="Circle"
+                        />
+                        <IconButton
+                            icon={<PenLine size={16} />}
+                            activated={selectedTool === "line"}
+                            onClick={() => setSelectedTool("line")}
+                            label="Line"
+                        />
+                        <IconButton
+                            icon={<Type size={16} />}
+                            activated={selectedTool === "text"}
+                            onClick={() => setSelectedTool("text")}
+                            label="Text"
+                        />
+                        <IconButton
+                            icon={<Eraser size={16} />}
+                            activated={selectedTool === "erase"}
+                            onClick={() => setSelectedTool("erase")}
+                            label="Eraser"
+                        />
+                        <IconButton
+                            icon={<Pipette size={16} />}
+                            activated={selectedTool === "colorpicker"}
+                            onClick={() => setSelectedTool("colorpicker")}
+                            label="Color Picker"
+                        />
+                    </div>
+                </div>
+
+                {/* Mobile Color Panel - Top Right */}
+                <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-gray-200/60 shadow-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                        <button
+                            onClick={() => setShowColorPopup(!showColorPopup)}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Colors"
+                        >
+                            <Palette size={16} />
+                        </button>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: strokeColor }}></div>
+                            <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: fillColor }}></div>
+                        </div>
+                    </div>
+                    
+                    {/* Quick Color Palette */}
+                    <div className="grid grid-cols-4 gap-1">
+                        {['#1976D2', '#1565C0', '#0D47A1', '#1E88E5', '#2196F3', '#42A5F5', '#64B5F6', '#90CAF9'].map((color, index) => (
+                            <button
+                                key={`quick-${color}-${index}`}
+                                onClick={() => setStrokeColor(color)}
+                                className={`w-6 h-6 rounded border transition-all duration-200 hover:scale-110 ${
+                                    strokeColor === color ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-1' : 'border-gray-300 hover:border-gray-400'
+                                }`}
+                                style={{ backgroundColor: color }}
+                                title={color}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Mobile Action Buttons - Top Left */}
+                <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md rounded-2xl p-2 border border-gray-200/60 shadow-lg">
+                    <div className="flex flex-col space-y-2">
+                        <button
+                            onClick={handleUndo}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                            title="Undo"
+                        >
+                            <Undo2 size={16} />
+                        </button>
+                        <button
+                            onClick={handleRedo}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                            title="Redo"
+                        >
+                            <Redo2 size={16} />
+                        </button>
+                        <button
+                            onClick={handleDownload}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                            title="Download"
+                        >
+                            <Download size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Mobile Status Indicators - Bottom Left */}
+                <div className="absolute bottom-4 left-4">
+                    <div className="flex flex-col space-y-2">
+                        <div className={`px-2 py-1 rounded text-xs font-medium ${
+                            isConnected 
+                                ? 'bg-green-50 text-green-700 border border-green-200' 
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                        }`}>
+                            {isConnected ? 'Connected' : 'Disconnected'}
+                        </div>
+                        
+                        {liveAIShape && (
+                            <div className={`px-2 py-1 rounded text-xs font-medium flex items-center space-x-2 ${
+                                isConvertingShape 
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                    : 'bg-green-50 text-green-700 border border-green-200'
+                            }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                    isConvertingShape ? 'bg-blue-600 animate-pulse' : 'bg-green-600'
+                                }`}></div>
+                                <span>
+                                    {isConvertingShape ? 'Converting...' : 'Live AI'}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Color Popup - Mobile Optimized */}
+                {showColorPopup && (
+                    <div 
+                        className="absolute bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-gray-200/60 shadow-lg"
+                        style={{
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            maxWidth: '90vw',
+                            maxHeight: '80vh',
+                            overflow: 'auto'
+                        }}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-gray-900 font-medium">Colors</h3>
+                            <button
+                                onClick={() => setShowColorPopup(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Color Type Selector */}
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-xs mb-2 block">Color Type</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { key: 'stroke', label: 'Stroke' },
+                                    { key: 'fill', label: 'Fill' },
+                                    { key: 'text', label: 'Text' }
+                                ].map((type) => (
+                                    <button
+                                        key={type.key}
+                                        onClick={() => setSelectedColorType(type.key as 'stroke' | 'fill' | 'text')}
+                                        className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                            selectedColorType === type.key
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        {type.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Color Picker */}
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-xs mb-2 block capitalize">
+                                {selectedColorType} Color
+                            </label>
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="color"
+                                    value={getCurrentColor()}
+                                    onChange={(e) => setCurrentColor(e.target.value)}
+                                    className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                                />
+                                <input
+                                    type="text"
+                                    value={getCurrentColor()}
+                                    onChange={(e) => setCurrentColor(e.target.value)}
+                                    className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm"
+                                    placeholder="#000000"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Color Palette */}
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-xs mb-2 block">Quick Colors</label>
+                            <div className="grid grid-cols-6 gap-2">
+                                {getCurrentColorPalette().slice(0, 24).map((color, index) => (
+                                    <button
+                                        key={`${selectedColorType}-${color}-${index}`}
+                                        onClick={() => setCurrentColor(color)}
+                                        className={`w-8 h-8 rounded border transition-all duration-200 hover:scale-110 ${
+                                            getCurrentColor() === color ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-1' : 'border-gray-300 hover:border-gray-400'
+                                        }`}
+                                        style={{ backgroundColor: color }}
+                                        title={color}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Stroke Width */}
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-xs mb-2 block">Stroke Width: {strokeWidth}px</label>
+                            <input
+                                type="range"
+                                min="1"
+                                max="20"
+                                value={strokeWidth}
+                                onChange={(e) => setStrokeWidth(Number(e.target.value))}
+                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                        </div>
+
+                        {/* Close Button */}
+                        <button
+                            onClick={() => setShowColorPopup(false)}
+                            className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                            Done
+                        </button>
+                    </div>
+                )}
+
+                {/* AI Panel - Mobile Optimized */}
+                {showAIPanel && (
+                    <div 
+                        className="absolute bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-gray-200/60 shadow-lg"
+                        style={{
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            maxWidth: '95vw',
+                            maxHeight: '90vh',
+                            overflow: 'auto'
+                        }}
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-2">
+                                <Brain className="w-5 h-5 text-gray-900" />
+                                <h3 className="text-gray-900 font-medium">AI Tools</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowAIPanel(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* AI Loading State */}
+                        {aiLoading && (
+                            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
+                                    <span className="text-blue-700 text-sm">{aiOperation}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* AI Error Display */}
+                        {aiError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-red-700 text-sm">{aiError}</p>
+                            </div>
+                        )}
+
+                        {/* File Upload */}
+                        <div className="mb-4">
+                            <label className="text-gray-600 text-xs mb-2 block">Upload Image</label>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileSelect}
+                                className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                            />
+                            {selectedFile && (
+                                <p className="text-gray-500 text-xs mt-1">Selected: {selectedFile.name}</p>
+                            )}
+                        </div>
+
+                        {selectedFile && (
+                            <button
+                                onClick={runCompleteAIAnalysis}
+                                className="w-full mb-4 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
+                            >
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                Run AI Analysis
+                            </button>
+                        )}
+
+                        {/* Live AI Toggle */}
                         <button
                             onClick={() => {
                                 if (liveAIShape) {
@@ -624,915 +960,91 @@ export function Canvas({
                                     enableLiveAIShape();
                                 }
                             }}
-                            className={`px-3 py-1.5 rounded transition-all duration-200 flex items-center space-x-2 ${
+                            className={`w-full px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center ${
                                 liveAIShape 
-                                    ? 'bg-gray-900 text-white' 
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
-                            title="Live AI Shape Recognition"
                         >
-                            <Sparkles size={16} />
-                            <span className="text-sm">Live AI</span>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {liveAIShape ? 'Live AI Active' : 'Enable Live AI'}
                         </button>
-                        <button
-                            onClick={handleUndo}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Undo (Ctrl+Z)"
-                        >
-                            <Undo2 size={16} />
-                        </button>
-                        <button
-                            onClick={() => game?.copyShapes()}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Copy (Ctrl+C)"
-                        >
-                            <Copy size={16} />
-                        </button>
-                        <button
-                            onClick={() => game?.cutShapes()}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Cut (Ctrl+X)"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                        <button
-                            onClick={() => {
-                                const centerX = window.innerWidth / 2;
-                                const centerY = window.innerHeight / 2;
-                                if (game) {
-                                    const worldPos = game.screenToWorld(centerX, centerY);
-                                    game.pasteShapes(worldPos.x, worldPos.y);
-                                }
-                            }}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Paste (Ctrl+V)"
-                        >
-                            <DownloadIcon size={16} />
-                        </button>
-
-                        <button
-                            onClick={() => setShowLayersPanel(!showLayersPanel)}
-                            className={`p-1.5 rounded transition-all duration-200 ${
-                                showLayersPanel 
-                                    ? 'bg-gray-900 text-white' 
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                            title="Layers Panel"
-                        >
-                            <Layers size={16} />
-                        </button>
-                        <button
-                            onClick={handleRedo}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Redo (Ctrl+Y)"
-                        >
-                            <Redo2 size={16} />
-                        </button>
-                        <button
-                            onClick={handleDownload}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200"
-                            title="Download Drawing"
-                        >
-                            <Download size={16} />
-                        </button>
-                        <button className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-all duration-200">
-                            <Settings size={16} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-1 relative overflow-hidden bg-white">
-                <canvas 
-                    ref={canvasRef} 
-                    width={canvasSize.width} 
-                    height={canvasSize.height} 
-                    className="cursor-crosshair touch-none select-none bg-white"
-                    style={{
-                        touchAction: 'none',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none',
-                        background: 'linear-gradient(90deg, #f1f5f9 1px, transparent 1px), linear-gradient(180deg, #f1f5f9 1px, transparent 1px)',
-                        backgroundSize: '20px 20px'
-                    }}
-                    onClick={handleCanvasClick}
-                />
-                
-                {/* Live AI Shape Conversion Notification */}
-                {isConvertingShape && (
-                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
-                        <div className="bg-blue-600/95 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-500/30 shadow-xl">
-                            <div className="flex items-center space-x-3">
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                <span className="text-white font-medium">Converting rough shape to perfect geometry...</span>
-                            </div>
-                        </div>
                     </div>
                 )}
 
-                {/* Text Typing Indicator */}
-                {isTyping && (
-                    <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
-                        <div className="bg-blue-600/95 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-500/30 shadow-xl">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                                <span className="text-white font-medium">Type your text now! Press Enter to finish, Escape to cancel</span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Text editing is now handled by Game.ts */}
-
-                {/* AI Tools Panel */}
-                {showAIPanel && (
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-xl max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-
-                {/* Color Popup */}
-                {showColorPopup && (
-                    <div 
-                        className="absolute z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-3"
-                        style={{ 
-                            left: colorPopupPosition.x - 100, 
-                            top: colorPopupPosition.y - 150 
-                        }}
-                    >
-                        <div className="text-center mb-2">
-                            <h3 className="text-gray-700 text-xs font-medium capitalize">
-                                {selectedColorType} Color
-                            </h3>
-                        </div>
-                        
-                        {/* Color Type Selector */}
-                        <div className="grid grid-cols-3 gap-1 mb-3">
-                            {[
-                                { key: 'stroke', label: 'Stroke' },
-                                { key: 'fill', label: 'Fill' },
-                                { key: 'text', label: 'Text' }
-                            ].map((type) => (
-                                <button
-                                    key={type.key}
-                                    onClick={() => setSelectedColorType(type.key as 'stroke' | 'fill' | 'text')}
-                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                        selectedColorType === type.key
-                                            ? 'bg-gray-900 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {type.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Circular Color Palette */}
-                        <div className="grid grid-cols-8 gap-1.5">
-                            {getCurrentColorPalette().slice(0, 24).map((color, index) => (
-                                <button
-                                    key={`popup-${selectedColorType}-${color}-${index}`}
-                                    onClick={() => {
-                                        setCurrentColor(color);
-                                        setShowColorPopup(false);
-                                    }}
-                                    className={`w-6 h-6 rounded-full border-2 transition-all duration-200 hover:scale-110 ${
-                                        getCurrentColor() === color ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-1' : 'border-gray-300 hover:border-gray-400'
-                                    }`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Close button */}
-                        <button
-                            onClick={() => setShowColorPopup(false)}
-                            className="absolute top-1 right-1 text-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                            <X size={12} />
-                        </button>
-                    </div>
-                )}
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center space-x-3">
-                                    <div className="bg-gray-900 w-10 h-10 rounded-lg flex items-center justify-center">
-                                        <Brain className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-gray-900 text-2xl font-bold">AI Drawing Assistant</h2>
-                                        <p className="text-gray-600 text-sm">Powered by Machine Learning</p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setShowAIPanel(false)}
-                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            {/* AI Loading State */}
-                            {aiLoading && (
-                                <div className="mb-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
-                                    <div className="flex items-center">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mr-2"></div>
-                                        <span className="text-blue-300">{aiOperation}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* AI Error Display */}
-                            {aiError && (
-                                <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
-                                    <p className="text-red-300">{aiError}</p>
-                                </div>
-                            )}
-
-                            {/* File Upload Section */}
-                            <div className="mb-6 p-4 bg-white/5 rounded-lg border border-white/10">
-                                <h3 className="text-white font-medium mb-3 flex items-center">
-                                    <Upload className="w-5 h-5 mr-2" />
-                                    Upload Image for AI Analysis
-                                </h3>
-                                
-                                <div className="flex items-center space-x-4 mb-3">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileSelect}
-                                        className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
-                                    />
-                                    {selectedFile && (
-                                        <span className="text-white/70 text-sm">
-                                            Selected: {selectedFile.name}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {selectedFile && (
-                                    <button
-                                        onClick={runCompleteAIAnalysis}
-                                        className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200 flex items-center"
-                                    >
-                                        <Sparkles className="w-5 h-5 mr-2" />
-                                        Run Complete AI Analysis
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* AI Features Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                {/* Shape Recognition */}
-                                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                                    <div className="flex items-center mb-3">
-                                        <Shapes className="w-6 h-6 text-blue-400 mr-2" />
-                                        <h4 className="text-white font-medium">Shape Recognition</h4>
-                                    </div>
-                                    <p className="text-white/70 text-sm mb-3">
-                                        Convert rough sketches to neat geometric shapes
-                                    </p>
-                                    {aiResult?.shapes && (
-                                        <div className="space-y-2 text-sm text-white/80">
-                                            <div>Shapes Detected: <span className="font-semibold">{aiResult.shapes.shapes_detected}</span></div>
-                                            {aiResult.shapes.cleaned_image && (
-                                                <div className="flex items-center space-x-2">
-                                                    <img 
-                                                        src={`data:image/png;base64,${aiResult.shapes.cleaned_image}`} 
-                                                        alt="Cleaned shapes" 
-                                                        className="w-16 h-16 rounded border"
-                                                    />
-                                                    <button
-                                                        onClick={() => downloadImage(aiResult.shapes.cleaned_image!, 'cleaned_shapes.png')}
-                                                        className="px-3 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 transition-colors"
-                                                    >
-                                                        Download
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Diagram Detection */}
-                                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                                    <div className="flex items-center mb-3">
-                                        <Layout className="w-6 h-6 text-green-400 mr-2" />
-                                        <h4 className="text-white font-medium">Diagram Detection</h4>
-                                    </div>
-                                    <p className="text-white/70 text-sm mb-3">
-                                        Detect flowchart, UML, mindmap types
-                                    </p>
-                                    {aiResult?.diagram && (
-                                        <div className="space-y-2 text-sm text-white/80">
-                                            <div>Type: <span className="font-semibold capitalize">{aiResult.diagram.diagram_type}</span></div>
-                                            <div>Confidence: <span className="font-semibold">{(aiResult.diagram.confidence * 100).toFixed(0)}%</span></div>
-                                            {aiResult.diagram.cleaned_image && (
-                                                <div className="flex items-center space-x-2">
-                                                    <img 
-                                                        src={`data:image/png;base64,${aiResult.diagram.cleaned_image}`} 
-                                                        alt="Cleaned diagram" 
-                                                        className="w-16 h-16 rounded border"
-                                                    />
-                                                    <button
-                                                        onClick={() => downloadImage(aiResult.diagram.cleaned_image!, 'cleaned_diagram.png')}
-                                                        className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition-colors"
-                                                    >
-                                                        Download
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Handwriting OCR */}
-                                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                                    <div className="flex items-center mb-3">
-                                        <Type className="w-6 h-6 text-purple-400 mr-2" />
-                                        <h4 className="text-white font-medium">Handwriting OCR</h4>
-                                    </div>
-                                    <p className="text-white/70 text-sm mb-3">
-                                        Convert handwritten notes to text
-                                    </p>
-                                    {aiResult?.text && (
-                                        <div className="space-y-2 text-sm text-white/80">
-                                            <div>Extracted: <span className="font-semibold">{aiResult.text.extracted_text}</span></div>
-                                            <div>Confidence: <span className="font-semibold">{(aiResult.text.confidence * 100).toFixed(0)}%</span></div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* AI Assistant */}
-                                <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-                                    <div className="flex items-center mb-3">
-                                        <Brain className="w-6 h-6 text-indigo-400 mr-2" />
-                                        <h4 className="text-white font-medium">AI Assistant</h4>
-                                    </div>
-                                    <p className="text-white/70 text-sm mb-3">
-                                        Get intelligent suggestions
-                                    </p>
-                                    
-                                    <div className="space-y-3">
-                                        <input
-                                            type="text"
-                                            placeholder="Describe diagram you want..."
-                                            value={aiPrompt}
-                                            onChange={(e) => setAiPrompt(e.target.value)}
-                                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                        />
-                                        <button
-                                            onClick={suggestDiagram}
-                                            className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                                        >
-                                            Get Suggestion
-                                        </button>
-                                    </div>
-
-                                    {aiResult?.suggestions && (
-                                        <div className="mt-3 p-3 bg-purple-500/20 rounded-lg">
-                                            <div className="text-sm text-white/90">
-                                                <span className="font-medium">Suggested: </span>
-                                                <span className="capitalize text-purple-300">{aiResult.suggestions.suggested_diagram}</span>
-                                                {aiResult.suggestions.confidence && (
-                                                    <span className="ml-2 text-white/70">
-                                                        ({(aiResult.suggestions.confidence * 100).toFixed(0)}% confidence)
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Text elements are now managed as shapes in Game.ts */}
-
-                            {/* Quick Actions */}
-                            <div className="flex justify-center space-x-4">
-                                <button
-                                    onClick={() => setShowAIPanel(false)}
-                                    className="px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
-                                >
-                                    Close AI Panel
-                                </button>
-                                <button
-                                    onClick={() => window.open('/ai-tools', '_blank')}
-                                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200"
-                                >
-                                    Open Full AI Tools
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                
-                {showWelcome && (
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-xl max-w-md mx-4">
-                            <div className="text-center space-y-4">
-                                <h2 className="text-gray-900 text-2xl font-bold">Welcome to the Drawing Room!</h2>
-                                <p className="text-gray-600">
-                                    Start creating amazing drawings with your team. Use the tools on the left to draw shapes, 
-                                    and collaborate in real-time with others in the room.
-                                </p>
-                                <div className="space-y-2 text-gray-500 text-sm">
-                                    <p>• <strong>Line Tool:</strong> Draw straight lines</p>
-                                    <p>• <strong>Pencil:</strong> Freehand sketching</p>
-                                    <p>• <strong>Rectangle Tool:</strong> Create rectangles</p>
-                                    <p>• <strong>Circle Tool:</strong> Draw circles</p>
-                                    <p>• <strong>Eraser:</strong> Remove shapes</p>
-                                    <p>• <strong>Text Tool:</strong> Click and type directly on canvas</p>
-                                    <p>• <strong>Resize:</strong> Click shapes to see resize handles</p>
-                                    <p>• <strong>AI Tools:</strong> Click the AI button for smart features</p>
-                                    <p>• <strong>Live AI:</strong> Enable to auto-convert rough shapes to perfect ones</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowWelcome(false)}
-                                    className="bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 mx-auto"
-                                >
-                                    <span>Get Started</span>
-                                    <X size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-                
-                <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-3">
-                        <div className="space-y-2">
-                            <div className="text-center mb-3">
-                                <h3 className="text-gray-600 text-xs font-medium uppercase tracking-wider">
-                                    Tools
-                                </h3>
-                                {liveAIShape && (
-                                    <div className="mb-2 px-2 py-1 bg-green-50 border border-green-200 rounded text-center">
-                                        <div className="flex items-center justify-center space-x-1">
-                                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                                            <span className="text-green-700 text-xs">Live AI Active</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {selectedTool === "colorpicker" && (
-                                    <div className="mb-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded text-center">
-                                        <div className="flex items-center justify-center space-x-1">
-                                            <Pipette size={10} className="text-blue-600" />
-                                            <span className="text-blue-700 text-xs">Click shape to pick colors</span>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                {/* Quick Color Preview */}
-                                <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded">
-                                    <div className="text-center mb-1">
-                                        <span className="text-gray-600 text-xs">Colors</span>
-                                    </div>
-                                    <div className="flex justify-center space-x-1">
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-gray-300 cursor-pointer hover:scale-110 transition-transform"
-                                            style={{ backgroundColor: strokeColor }}
-                                            onClick={(e) => {
-                                                setSelectedColorType('stroke');
-                                                setColorPopupPosition({ x: e.clientX, y: e.clientY });
-                                                setShowColorPopup(true);
-                                            }}
-                                            title={`Stroke: ${strokeColor}`}
-                                        />
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-gray-300 cursor-pointer hover:scale-110 transition-transform"
-                                            style={{ backgroundColor: fillColor }}
-                                            onClick={(e) => {
-                                                setSelectedColorType('fill');
-                                                setColorPopupPosition({ x: e.clientX, y: e.clientY });
-                                                setShowColorPopup(true);
-                                            }}
-                                            title={`Fill: ${fillColor}`}
-                                        />
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-gray-300 cursor-pointer hover:scale-110 transition-transform"
-                                            style={{ backgroundColor: textColor }}
-                                            onClick={(e) => {
-                                                setSelectedColorType('text');
-                                                setColorPopupPosition({ x: e.clientX, y: e.clientY });
-                                                setShowColorPopup(true);
-                                            }}
-                                            title={`Text: ${textColor}`}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <IconButton 
-                                onClick={() => setSelectedTool("pencil")}
-                                activated={selectedTool === "pencil"}
-                                icon={<Pencil size={20} />}
-                                label="Pencil"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("line")}
-                                activated={selectedTool === "line"}
-                                icon={<Minus size={20} />}
-                                label="Line"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("rect")}
-                                activated={selectedTool === "rect"}
-                                icon={<RectangleHorizontalIcon size={20} />}
-                                label="Rectangle"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("circle")}
-                                activated={selectedTool === "circle"}
-                                icon={<Circle size={20} />}
-                                label="Circle"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("erase")}
-                                activated={selectedTool === "erase"}
-                                icon={<Eraser size={20} />}
-                                label="Eraser"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("text")}
-                                activated={selectedTool === "text"}
-                                icon={<Type size={20} />}
-                                label="Text"
-                            />
-                            <IconButton 
-                                onClick={() => setSelectedTool("colorpicker")}
-                                activated={selectedTool === "colorpicker"}
-                                icon={<Pipette size={20} />}
-                                label="Color Picker"
-                            />
-                            <IconButton 
-                                onClick={() => setShowStylingPanel(!showStylingPanel)}
-                                activated={showStylingPanel}
-                                icon={<Palette size={20} />}
-                                label="Colors"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                    {/* Compact Styling Panel */}
-                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 min-w-[240px]">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-gray-600 text-xs font-medium uppercase tracking-wider">
-                                Styling
-                            </h3>
+                {/* Quick Tips - Mobile Optimized */}
+                {showQuickTips && (
+                    <div className="absolute bottom-20 left-4 right-4 bg-white/95 backdrop-blur-md rounded-xl p-4 border border-gray-200/60 shadow-lg">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-gray-800 font-medium text-sm">Quick Tips</h4>
                             <button
-                                onClick={() => setShowStylingPanel(!showStylingPanel)}
-                                className="text-gray-500 hover:text-gray-700 transition-colors p-1"
+                                onClick={() => setShowQuickTips(false)}
+                                className="text-gray-500 hover:text-gray-700 transition-colors"
                             >
                                 <X size={14} />
                             </button>
                         </div>
-                        
-                        {showStylingPanel && (
-                            <div className="space-y-4">
-                                {/* Color Type Selector */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block">Color Type</label>
-                                    <div className="grid grid-cols-3 gap-1">
-                                        {[
-                                            { key: 'stroke', label: 'Stroke', color: strokeColor },
-                                            { key: 'fill', label: 'Fill', color: fillColor },
-                                            { key: 'text', label: 'Text', color: textColor }
-                                        ].map((type) => (
-                                            <button
-                                                key={type.key}
-                                                onClick={() => setSelectedColorType(type.key as 'stroke' | 'fill' | 'text')}
-                                                className={`px-2 py-1.5 rounded text-xs font-medium transition-colors ${
-                                                    selectedColorType === type.key
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
-                                            >
-                                                {type.label}
-                                            </button>
-                                        ))}
+                        <div className="text-gray-600 text-xs space-y-1 max-h-32 overflow-y-auto">
+                            <p>• <strong>Touch and drag</strong> to draw shapes</p>
+                            <p>• <strong>Pinch to zoom</strong>, <strong>two-finger pan</strong></p>
+                            <p>• <strong>Tap text tool</strong>, then tap canvas to type</p>
+                            <p>• <strong>Tap color palette</strong> for styling options</p>
+                            <p>• <strong>Tap AI button</strong> for smart features</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Welcome Modal - Mobile Optimized */}
+                {showWelcome && (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
+                            <div className="text-center mb-6">
+                                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <PenLine className="w-8 h-8 text-white" />
+                                </div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-2">Welcome to Draw-App!</h2>
+                                <p className="text-gray-600 text-sm">Start drawing and collaborating in real-time</p>
+                            </div>
+                            
+                            <div className="space-y-3 mb-6">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <Pencil className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-900">Drawing Tools</h3>
+                                        <p className="text-xs text-gray-500">Pencil, shapes, text, and more</p>
                                     </div>
                                 </div>
-
-                                {/* Single Color Picker */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block capitalize">
-                                        {selectedColorType} Color
-                                    </label>
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="color"
-                                            value={getCurrentColor()}
-                                            onChange={(e) => setCurrentColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={getCurrentColor()}
-                                            onChange={(e) => setCurrentColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm"
-                                            placeholder="#000000"
-                                        />
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                        <Users className="w-4 h-4 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-900">Real-time Collaboration</h3>
+                                        <p className="text-xs text-gray-500">Draw together with friends</p>
                                     </div>
                                 </div>
-
-                                {/* Compact Color Palette */}
-                                <div>
-                                    <div className="grid grid-cols-8 gap-1 mb-2">
-                                        {getCurrentColorPalette().slice(0, 16).map((color, index) => (
-                                            <button
-                                                key={`${selectedColorType}-${color}-${index}`}
-                                                onClick={() => setCurrentColor(color)}
-                                                className={`w-6 h-6 rounded border transition-all duration-200 hover:scale-110 ${
-                                                    getCurrentColor() === color ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-1' : 'border-gray-300 hover:border-gray-400'
-                                                }`}
-                                                style={{ backgroundColor: color }}
-                                                title={color}
-                                            />
-                                        ))}
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                        <Brain className="w-4 h-4 text-purple-600" />
                                     </div>
-                                    <div className="grid grid-cols-8 gap-1">
-                                        {getCurrentColorPalette().slice(16, 32).map((color, index) => (
-                                            <button
-                                                key={`${selectedColorType}-${color}-${index + 16}`}
-                                                onClick={() => setCurrentColor(color)}
-                                                className={`w-6 h-6 rounded border transition-all duration-200 hover:scale-110 ${
-                                                    getCurrentColor() === color ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-1' : 'border-gray-300 hover:border-gray-400'
-                                                }`}
-                                                style={{ backgroundColor: color }}
-                                                title={color}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Stroke Width */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block">Stroke Width: {strokeWidth}px</label>
-                                    <input
-                                        type="range"
-                                        min="1"
-                                        max="20"
-                                        value={strokeWidth}
-                                        onChange={(e) => setStrokeWidth(Number(e.target.value))}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                </div>
-
-                                {/* Opacity */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block">Opacity: {Math.round(opacity * 100)}%</label>
-                                    <input
-                                        type="range"
-                                        min="0"
-                                        max="1"
-                                        step="0.1"
-                                        value={opacity}
-                                        onChange={(e) => setOpacity(Number(e.target.value))}
-                                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                </div>
-
-                                {/* Stroke Style */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block">Stroke Style</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {["solid", "dashed", "dotted", "dash-dot"].map((style) => (
-                                            <button
-                                                key={style}
-                                                onClick={() => setStrokeStyle(style as any)}
-                                                className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
-                                                    strokeStyle === style
-                                                        ? 'bg-gray-900 text-white'
-                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                }`}
-                                            >
-                                                {style}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Text Color */}
-                                <div>
-                                    <label className="text-gray-600 text-xs mb-2 block">Text Color</label>
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="color"
-                                            value={textColor}
-                                            onChange={(e) => setTextColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={textColor}
-                                            onChange={(e) => setTextColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 text-sm"
-                                            placeholder="#1565C0"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Design Color */}
-                                <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Design Color</label>
-                                    <div className="flex items-center space-x-2">
-                                        <input
-                                            type="color"
-                                            value={designColor}
-                                            onChange={(e) => setDesignColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={designColor}
-                                            onChange={(e) => setDesignColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
-                                            placeholder="#1E293B"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Gradient */}
-                                <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Gradient</label>
-                                    <div className="space-y-2">
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {["none", "linear", "radial"].map((type) => (
-                                                <button
-                                                    key={type}
-                                                    onClick={() => setGradientType(type as any)}
-                                                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                                        gradientType === type
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
-                                                    }`}
-                                                >
-                                                    {type}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        
-                                        {gradientType !== "none" && (
-                                            <div className="space-y-2">
-                                                {gradientColors.map((color, index) => (
-                                                    <div key={index} className="flex items-center space-x-2">
-                                                        <input
-                                                            type="color"
-                                                            value={color}
-                                                            onChange={(e) => {
-                                                                const newColors = [...gradientColors];
-                                                                newColors[index] = e.target.value;
-                                                                setGradientColors(newColors);
-                                                            }}
-                                                            className="w-6 h-6 rounded border border-white/20 cursor-pointer"
-                                                        />
-                                                        <span className="text-white/70 text-xs">Stop {index + 1}</span>
-                                                    </div>
-                                                ))}
-                                                <button
-                                                    onClick={() => setGradientColors([...gradientColors, "#FFFFFF"])}
-                                                    className="w-full px-2 py-1 bg-white/10 text-white/70 text-xs rounded hover:bg-white/20"
-                                                >
-                                                    Add Color Stop
-                                                </button>
-                                            </div>
-                                        )}
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-900">AI Features</h3>
+                                        <p className="text-xs text-gray-500">Smart shape recognition and more</p>
                                     </div>
                                 </div>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Layers Panel */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-xl min-w-[280px]">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
-                                Layers
-                            </h3>
+                            
                             <button
-                                onClick={() => setShowLayersPanel(!showLayersPanel)}
-                                className="text-white/60 hover:text-white/80 transition-colors"
+                                onClick={() => setShowWelcome(false)}
+                                className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
                             >
-                                <X size={16} />
+                                Get Started
                             </button>
                         </div>
-                        
-                        {showLayersPanel && (
-                            <div className="space-y-2">
-                                <button
-                                    onClick={() => game?.createLayer("New Layer")}
-                                    className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                                >
-                                    Add Layer
-                                </button>
-                                
-                                <div className="space-y-1 max-h-40 overflow-y-auto">
-                                    {game?.getLayers().map((layer) => (
-                                        <div key={layer.id} className="flex items-center justify-between p-2 bg-white/5 rounded">
-                                            <div className="flex items-center space-x-2">
-                                                <button
-                                                    onClick={() => game?.setLayerVisibility(layer.id, !layer.visible)}
-                                                    className="text-white/70 hover:text-white"
-                                                >
-                                                    {layer.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                                                </button>
-                                                <span className="text-white text-sm">{layer.name}</span>
-                                                <span className="text-white/50 text-xs">({layer.shapeCount})</span>
-                                            </div>
-                                            <button
-                                                onClick={() => game?.deleteLayer(layer.id)}
-                                                className="text-red-400 hover:text-red-300"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
-
-
-                </div>
-
-                <div className="absolute bottom-4 left-4">
-                    <div className="flex space-x-2">
-                    <div className={`px-3 py-1.5 rounded text-sm font-medium ${
-                        isConnected 
-                            ? 'bg-green-50 text-green-700 border border-green-200' 
-                            : 'bg-red-50 text-red-700 border border-red-200'
-                    }`}>
-                        {isConnected ? 'Connected' : 'Disconnected'}
-                        </div>
-                        
-                        {liveAIShape && (
-                            <div className={`px-3 py-1.5 rounded text-sm font-medium flex items-center space-x-2 ${
-                                isConvertingShape 
-                                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                                    : 'bg-green-50 text-green-700 border border-green-200'
-                            }`}>
-                                <div className={`w-2 h-2 rounded-full ${
-                                    isConvertingShape ? 'bg-blue-600 animate-pulse' : 'bg-green-600'
-                                }`}></div>
-                                <span>
-                                    {isConvertingShape ? 'Converting Shape...' : 'Live AI Active'}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="absolute bottom-6 right-6">
-                    {showQuickTips ? (
-                        <div className="bg-white/95 backdrop-blur-md rounded-xl p-4 border border-slate-200/60 shadow-lg max-w-xs animate-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-slate-800 font-medium">Quick Tips</h4>
-                                <button
-                                    onClick={() => setShowQuickTips(false)}
-                                    className="text-slate-500 hover:text-slate-700 transition-colors"
-                                    title="Hide Quick Tips"
-                                >
-                                    <X size={16} />
-                                </button>
-                            </div>
-                            <ul className="text-slate-600 text-sm space-y-1">
-                                <li>• Click and drag to draw shapes</li>
-                                <li>• Use Pencil for freehand sketching</li>
-                                <li>• Click Text tool, then click canvas and type</li>
-                                <li>• <strong>3+ fingers for palm scrolling</strong></li>
-                                <li>• <strong>Ctrl+C to copy, Ctrl+X to cut, Ctrl+V to paste</strong></li>
-                                <li>• <strong>Click shapes to see resize handles</strong></li>
-                                <li>• <strong>Drag handles to resize shapes</strong></li>
-                                <li>• <strong>Click Palette button for styling options</strong></li>
-                                <li>• <strong>Click Layers button for layer management</strong></li>
-                                <li>• <strong>Use color picker, gradients, and stroke styles</strong></li>
-                                <li>• <strong>Adjust opacity and stroke width</strong></li>
-                                <li>• <strong>Set text color and design color separately</strong></li>
-                                <li>• <strong>Text size stays consistent when zooming</strong></li>
-                                <li>• <strong>16 colors including black and more options</strong></li>
-                                <li>• <strong>Ctrl+T to create test shape</strong></li>
-                                <li>• <strong>Ctrl+R to debug resize handles</strong></li>
-                                <li>• <strong>Ctrl+H to hide/show tips</strong></li>
-                                <li>• Hold Space or right-drag to pan</li>
-                                <li>• Scroll to zoom, Ctrl/Cmd+0 to reset</li>
-                                <li>• Click AI button for smart features</li>
-                                <li>• Enable Live AI to auto-convert rough shapes</li>
-                                <li>• Upload images for AI analysis</li>
-                            </ul>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => setShowQuickTips(true)}
-                            className="bg-white/95 backdrop-blur-md rounded-xl p-3 border border-slate-200/60 shadow-lg hover:bg-white transition-all duration-200 animate-in slide-in-from-bottom-2 duration-300 group"
-                            title="Show Quick Tips (Ctrl+H)"
-                        >
-                            <div className="flex items-center space-x-2 text-slate-600 group-hover:text-slate-800">
-                                <Sparkles size={16} />
-                                <span className="text-sm font-medium">Show Tips</span>
-                            </div>
-                        </button>
-                    )}
-                </div>
+                )}
             </div>
         </div>
     );
