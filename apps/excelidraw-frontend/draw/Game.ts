@@ -98,6 +98,26 @@ export class Game {
   private resizeStartX: number = 0;
   private resizeStartY: number = 0;
   private originalShape: Shape | null = null;
+  
+  // Performance optimizations
+  private animationFrameId: number | null = null;
+  private needsRedraw: boolean = false;
+  private lastDrawTime: number = 0;
+  private drawThrottle: number = 16; // ~60fps
+  
+  // Text rendering improvements
+  private textFonts: { [key: string]: string } = {
+    'default': '16px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    'heading': '20px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    'large': '24px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    'small': '14px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    'mono': '14px "Roboto Mono", "SF Mono", Monaco, monospace'
+  };
+  
+  // Smooth drawing optimizations
+  private drawingBuffer: { x: number; y: number }[] = [];
+  private smoothingFactor: number = 0.3;
+  private lastPoint: { x: number; y: number } | null = null;
   private cursorBlink: boolean = true;
   private cursorBlinkInterval: NodeJS.Timeout | null = null;
   
@@ -158,6 +178,11 @@ export class Game {
     this.roomId = roomId;
     this.socket = socket;
     this.clicked = false;
+    
+    // Enable canvas optimizations for smoother rendering
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+    
     this.init();
     this.initHandlers();
     this.initMouseHandlers();
@@ -166,6 +191,15 @@ export class Game {
   }
 
   destroy() {
+    // Cancel any pending animation frames
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    if (this.cursorBlinkInterval) {
+      clearInterval(this.cursorBlinkInterval);
+    }
+    
+    // Remove mouse events
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
@@ -1361,34 +1395,123 @@ export class Game {
     return null;
   }
 
+  // Smooth drawing optimization
+  private requestRedraw() {
+    if (!this.needsRedraw) {
+      this.needsRedraw = true;
+      this.animationFrameId = requestAnimationFrame(() => {
+        this.clearCanvas();
+        this.needsRedraw = false;
+      });
+    }
+  }
+
+  // Improved text rendering with better fonts
+  private renderText(text: string, x: number, y: number, fontSize: number, color: string, fontFamily: string = 'default') {
+    this.ctx.save();
+    
+    // Set font with better rendering
+    const font = this.textFonts[fontFamily] || this.textFonts['default'];
+    this.ctx.font = font.replace('16px', `${fontSize}px`);
+    this.ctx.fillStyle = color;
+    this.ctx.textBaseline = 'top';
+    this.ctx.textAlign = 'left';
+    
+    // Enable text rendering optimizations
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+    
+    // Add subtle text shadow for better readability
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+    this.ctx.shadowBlur = 1;
+    this.ctx.shadowOffsetX = 0;
+    this.ctx.shadowOffsetY = 1;
+    
+    // Render text
+    this.ctx.fillText(text, x, y);
+    
+    this.ctx.restore();
+  }
+
+  // Smooth path drawing with interpolation
+  private drawSmoothPath(points: { x: number; y: number }[], style: ShapeStyle) {
+    if (points.length < 2) return;
+    
+    this.ctx.save();
+    this.ctx.strokeStyle = style.strokeColor;
+    this.ctx.lineWidth = style.strokeWidth;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+    
+    // Apply stroke style
+    this.applyStrokeStyle(this.ctx, style.strokeStyle);
+    
+    this.ctx.beginPath();
+    
+    // Start with first point
+    const firstPoint = this.worldToScreen(points[0].x, points[0].y);
+    this.ctx.moveTo(firstPoint.x, firstPoint.y);
+    
+    // Draw smooth curve through points
+    for (let i = 1; i < points.length - 1; i++) {
+      const current = this.worldToScreen(points[i].x, points[i].y);
+      const next = this.worldToScreen(points[i + 1].x, points[i + 1].y);
+      
+      // Calculate control points for smooth curve
+      const cp1x = current.x + (next.x - (i > 0 ? this.worldToScreen(points[i - 1].x, points[i - 1].y).x : current.x)) * 0.3;
+      const cp1y = current.y + (next.y - (i > 0 ? this.worldToScreen(points[i - 1].x, points[i - 1].y).y : current.y)) * 0.3;
+      const cp2x = next.x - (next.x - current.x) * 0.3;
+      const cp2y = next.y - (next.y - current.y) * 0.3;
+      
+      this.ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, next.x, next.y);
+    }
+    
+    // Handle last point
+    if (points.length > 1) {
+      const lastPoint = this.worldToScreen(points[points.length - 1].x, points[points.length - 1].y);
+      this.ctx.lineTo(lastPoint.x, lastPoint.y);
+    }
+    
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
   clearCanvas() {
+    // Cancel any pending animation frame
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
+    }
+    
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Create a subtle grid background
     this.ctx.fillStyle = "#ffffff"; // White background for whiteboard
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // Draw subtle grid lines
+    // Draw subtle grid lines with better performance
     this.ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
     this.ctx.lineWidth = 1;
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
     
     const gridSize = 50 * this.scale;
     const startX = Math.floor(this.offsetX / gridSize) * gridSize;
     const startY = Math.floor(this.offsetY / gridSize) * gridSize;
     
+    // Batch grid drawing for better performance
+    this.ctx.beginPath();
     for (let x = startX; x <= this.canvas.width + gridSize; x += gridSize) {
-      this.ctx.beginPath();
       this.ctx.moveTo(x, 0);
       this.ctx.lineTo(x, this.canvas.height);
-      this.ctx.stroke();
     }
-    
     for (let y = startY; y <= this.canvas.height + gridSize; y += gridSize) {
-      this.ctx.beginPath();
       this.ctx.moveTo(0, y);
       this.ctx.lineTo(this.canvas.width, y);
-      this.ctx.stroke();
     }
+    this.ctx.stroke();
 
     // Filter out any undefined or null shapes
     const validShapes = this.existingShapes.filter(shape => 
@@ -1460,28 +1583,20 @@ export class Game {
         this.ctx.closePath();
       } else if (shape.type === "path") {
         if (shape.points.length > 1) {
-          this.ctx.beginPath();
-          const p0 = this.worldToScreen(shape.points[0].x, shape.points[0].y);
-          this.ctx.moveTo(p0.x, p0.y);
-          for (let i = 1; i < shape.points.length; i++) {
-            const pi = this.worldToScreen(shape.points[i].x, shape.points[i].y);
-            this.ctx.lineTo(pi.x, pi.y);
-          }
-          this.ctx.stroke();
-          this.ctx.closePath();
+          // Use smooth path drawing for better quality
+          this.drawSmoothPath(shape.points, style);
         }
       } else if (shape.type === "text") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
         // Keep text size consistent regardless of zoom level
         const baseFontSize = shape.fontSize || 16;
         const adjustedFontSize = Math.max(12, baseFontSize / this.scale);
-        this.ctx.font = `${adjustedFontSize}px Arial`;
         
         // Use text color from style or fallback to shape color
         const textColor = shape.style?.textColor || shape.color || "#000000";
-        this.ctx.fillStyle = textColor;
-        this.ctx.textBaseline = "top";
-        this.ctx.fillText(shape.text, screenPos.x, screenPos.y);
+        
+        // Use improved text rendering
+        this.renderText(shape.text, screenPos.x, screenPos.y, adjustedFontSize, textColor, 'default');
         
         // Draw selection border for text
         if (this.selectedShape === shape) {
@@ -1516,19 +1631,14 @@ export class Game {
       }
     });
 
-    // If drawing a freehand path, render the preview
+    // If drawing a freehand path, render the preview with smooth drawing
     if (this.isDrawingPath && this.currentPathPoints.length > 1) {
-      this.ctx.strokeStyle = "#9CA3AF"; // Gray for preview
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      const p0 = this.worldToScreen(this.currentPathPoints[0].x, this.currentPathPoints[0].y);
-      this.ctx.moveTo(p0.x, p0.y);
-      for (let i = 1; i < this.currentPathPoints.length; i++) {
-        const pi = this.worldToScreen(this.currentPathPoints[i].x, this.currentPathPoints[i].y);
-        this.ctx.lineTo(pi.x, pi.y);
-      }
-      this.ctx.stroke();
-      this.ctx.closePath();
+      const previewStyle: ShapeStyle = {
+        ...this.currentStyle,
+        strokeColor: "#9CA3AF", // Gray for preview
+        strokeWidth: 2
+      };
+      this.drawSmoothPath(this.currentPathPoints, previewStyle);
     }
 
     // Draw resize handles for selected shape

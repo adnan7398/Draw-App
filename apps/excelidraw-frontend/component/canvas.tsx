@@ -4,6 +4,7 @@ import { IconButton } from "./IconButton";
 import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2, Layers, Eye, EyeOff, Droplets, Pipette, PenLine } from "lucide-react";
 import { Game } from "@/draw/Game";
 import { getMLBackendUrl } from "@/config";
+import { PerformanceMonitor } from "./PerformanceMonitor";
 
 export type Tool = "circle" | "rect" | "line" | "erase" | "pencil" | "text" | "colorpicker";
 
@@ -1046,6 +1047,9 @@ export function Canvas({
                     </div>
                 )}
             </div>
+            
+            {/* Performance Monitor */}
+            <PerformanceMonitor />
         </div>
     );
 }
