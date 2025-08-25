@@ -56,14 +56,14 @@ export function Canvas({
     // Styling State
     const [showStylingPanel, setShowStylingPanel] = useState(false);
     const [showLayersPanel, setShowLayersPanel] = useState(false);
-    const [fillColor, setFillColor] = useState("#FFFFFF");
-    const [strokeColor, setStrokeColor] = useState("#000000");
+    const [fillColor, setFillColor] = useState("#E3F2FD");
+    const [strokeColor, setStrokeColor] = useState("#1976D2");
     const [strokeWidth, setStrokeWidth] = useState(2);
     const [opacity, setOpacity] = useState(1);
     const [strokeStyle, setStrokeStyle] = useState<"solid" | "dashed" | "dotted" | "dash-dot">("solid");
     const [gradientType, setGradientType] = useState<"none" | "linear" | "radial">("none");
     const [gradientColors, setGradientColors] = useState(["#FF6B6B", "#4ECDC4"]);
-    const [textColor, setTextColor] = useState("#000000");
+    const [textColor, setTextColor] = useState("#1565C0");
     const [designColor, setDesignColor] = useState("#1E293B");
 
     const mlBackendUrl = getMLBackendUrl();
@@ -508,17 +508,17 @@ export function Canvas({
     // Text functions removed - now handled by Game.ts as shapes
 
     return (
-        <div className="h-screen bg-gray-900 flex flex-col">
-            <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-3">
+        <div className="h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
+            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 shadow-sm px-6 py-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
-                            <div className={`w-3 h-3 rounded-full animate-pulse ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                            <span className="text-white text-sm font-medium">
+                            <div className={`w-3 h-3 rounded-full animate-pulse ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-slate-800 text-sm font-medium">
                                 Room: {roomId}
                             </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-white/70 text-sm">
+                        <div className="flex items-center space-x-2 text-slate-600 text-sm">
                             <Users size={16} />
                             <span>{participantCount} participant{participantCount !== 1 ? 's' : ''}</span>
                         </div>
@@ -527,10 +527,10 @@ export function Canvas({
                     <div className="flex items-center space-x-3">
                         <button
                             onClick={() => setShowAIPanel(!showAIPanel)}
-                            className={`p-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                            className={`px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 ${
                                 showAIPanel 
-                                    ? 'bg-purple-600 text-white' 
-                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    ? 'bg-purple-600 text-white shadow-md' 
+                                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/80'
                             }`}
                             title="AI Tools"
                         >
@@ -545,10 +545,10 @@ export function Canvas({
                                     enableLiveAIShape();
                                 }
                             }}
-                            className={`p-2 rounded-lg transition-colors flex items-center space-x-2 ${
+                            className={`px-3 py-2 rounded-lg transition-all duration-200 flex items-center space-x-2 ${
                                 liveAIShape 
-                                    ? 'bg-green-600 text-white' 
-                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    ? 'bg-green-600 text-white shadow-md' 
+                                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/80'
                             }`}
                             title="Live AI Shape Recognition"
                         >
@@ -557,21 +557,21 @@ export function Canvas({
                         </button>
                         <button
                             onClick={handleUndo}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Undo (Ctrl+Z)"
                         >
                             <Undo2 size={18} />
                         </button>
                         <button
                             onClick={() => game?.copyShapes()}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Copy (Ctrl+C)"
                         >
                             <Copy size={18} />
                         </button>
                         <button
                             onClick={() => game?.cutShapes()}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Cut (Ctrl+X)"
                         >
                             <Trash2 size={18} />
@@ -585,17 +585,17 @@ export function Canvas({
                                     game.pasteShapes(worldPos.x, worldPos.y);
                                 }
                             }}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Paste (Ctrl+V)"
                         >
                             <DownloadIcon size={18} />
                         </button>
                         <button
                             onClick={() => setShowStylingPanel(!showStylingPanel)}
-                            className={`p-2 rounded-lg transition-colors ${
+                            className={`p-2 rounded-lg transition-all duration-200 ${
                                 showStylingPanel 
-                                    ? 'bg-blue-600 text-white' 
-                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    ? 'bg-blue-600 text-white shadow-md' 
+                                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/80'
                             }`}
                             title="Styling Panel"
                         >
@@ -603,10 +603,10 @@ export function Canvas({
                         </button>
                         <button
                             onClick={() => setShowLayersPanel(!showLayersPanel)}
-                            className={`p-2 rounded-lg transition-colors ${
+                            className={`p-2 rounded-lg transition-all duration-200 ${
                                 showLayersPanel 
-                                    ? 'bg-blue-600 text-white' 
-                                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                                    ? 'bg-blue-600 text-white shadow-md' 
+                                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100/80'
                             }`}
                             title="Layers Panel"
                         >
@@ -614,35 +614,37 @@ export function Canvas({
                         </button>
                         <button
                             onClick={handleRedo}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Redo (Ctrl+Y)"
                         >
                             <Redo2 size={18} />
                         </button>
                         <button
                             onClick={handleDownload}
-                            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200"
                             title="Download Drawing"
                         >
                             <Download size={18} />
                         </button>
-                        <button className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
+                        <button className="p-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100/80 rounded-lg transition-all duration-200">
                             <Settings size={18} />
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 relative overflow-hidden">
+            <div className="flex-1 relative overflow-hidden bg-white">
                 <canvas 
                     ref={canvasRef} 
                     width={canvasSize.width} 
                     height={canvasSize.height} 
-                    className="cursor-crosshair touch-none select-none"
+                    className="cursor-crosshair touch-none select-none bg-white"
                     style={{
                         touchAction: 'none',
                         userSelect: 'none',
-                        WebkitUserSelect: 'none'
+                        WebkitUserSelect: 'none',
+                        background: 'linear-gradient(90deg, #f8fafc 1px, transparent 1px), linear-gradient(180deg, #f8fafc 1px, transparent 1px)',
+                        backgroundSize: '20px 20px'
                     }}
                     onClick={handleCanvasClick}
                 />
@@ -650,7 +652,7 @@ export function Canvas({
                 {/* Live AI Shape Conversion Notification */}
                 {isConvertingShape && (
                     <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
-                        <div className="bg-blue-500/90 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-400/30 shadow-xl">
+                        <div className="bg-blue-600/95 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-500/30 shadow-xl">
                             <div className="flex items-center space-x-3">
                                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                 <span className="text-white font-medium">Converting rough shape to perfect geometry...</span>
@@ -662,7 +664,7 @@ export function Canvas({
                 {/* Text Typing Indicator */}
                 {isTyping && (
                     <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-40">
-                        <div className="bg-blue-500/90 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-400/30 shadow-xl">
+                        <div className="bg-blue-600/95 backdrop-blur-md rounded-lg px-6 py-3 border border-blue-500/30 shadow-xl">
                             <div className="flex items-center space-x-3">
                                 <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                                 <span className="text-white font-medium">Type your text now! Press Enter to finish, Escape to cancel</span>
@@ -890,15 +892,15 @@ export function Canvas({
                 )}
                 
                 {showWelcome && (
-                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl max-w-md mx-4">
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-white/95 backdrop-blur-md rounded-2xl p-8 border border-slate-200/60 shadow-2xl max-w-md mx-4">
                             <div className="text-center space-y-4">
-                                <h2 className="text-white text-2xl font-bold">Welcome to the Drawing Room!</h2>
-                                <p className="text-white/70">
+                                <h2 className="text-slate-800 text-2xl font-bold">Welcome to the Drawing Room!</h2>
+                                <p className="text-slate-600">
                                     Start creating amazing drawings with your team. Use the tools on the left to draw shapes, 
                                     and collaborate in real-time with others in the room.
                                 </p>
-                                <div className="space-y-2 text-white/60 text-sm">
+                                <div className="space-y-2 text-slate-500 text-sm">
                                     <p>• <strong>Line Tool:</strong> Draw straight lines</p>
                                     <p>• <strong>Pencil:</strong> Freehand sketching</p>
                                     <p>• <strong>Rectangle Tool:</strong> Create rectangles</p>
@@ -911,7 +913,7 @@ export function Canvas({
                                 </div>
                                 <button
                                     onClick={() => setShowWelcome(false)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors duration-200 flex items-center justify-center space-x-2 mx-auto"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center justify-center space-x-2 mx-auto shadow-lg"
                                 >
                                     <span>Get Started</span>
                                     <X size={16} />
@@ -922,25 +924,25 @@ export function Canvas({
                 )}
                 
                 <div className="absolute left-6 top-1/2 transform -translate-y-1/2">
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-slate-200/60 shadow-lg">
                         <div className="space-y-3">
                             <div className="text-center">
-                                <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider mb-3">
+                                <h3 className="text-slate-700 text-xs font-medium uppercase tracking-wider mb-3">
                                     Tools
                                 </h3>
                                 {liveAIShape && (
-                                    <div className="mb-3 px-2 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
+                                    <div className="mb-3 px-2 py-1 bg-green-100 border border-green-200 rounded-lg">
                                         <div className="flex items-center justify-center space-x-1">
-                                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                                            <span className="text-green-300 text-xs font-medium">Live AI Active</span>
+                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                            <span className="text-green-700 text-xs font-medium">Live AI Active</span>
                                         </div>
                                     </div>
                                 )}
                                 {selectedTool === "colorpicker" && (
-                                    <div className="mb-3 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                                    <div className="mb-3 px-2 py-1 bg-blue-100 border border-blue-200 rounded-lg">
                                         <div className="flex items-center justify-center space-x-1">
-                                            <Pipette size={12} className="text-blue-300" />
-                                            <span className="text-blue-300 text-xs font-medium">Click any shape to pick its colors</span>
+                                            <Pipette size={12} className="text-blue-600" />
+                                            <span className="text-blue-700 text-xs font-medium">Click any shape to pick its colors</span>
                                         </div>
                                     </div>
                                 )}
@@ -994,14 +996,14 @@ export function Canvas({
 
                 <div className="absolute right-6 top-1/2 transform -translate-y-1/2 space-y-4">
                     {/* Styling Panel */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-xl min-w-[280px]">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-slate-200/60 shadow-lg min-w-[280px]">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                            <h3 className="text-slate-700 text-xs font-medium uppercase tracking-wider">
                                 Styling
                             </h3>
                             <button
                                 onClick={() => setShowStylingPanel(!showStylingPanel)}
-                                className="text-white/60 hover:text-white/80 transition-colors"
+                                className="text-slate-500 hover:text-slate-700 transition-colors"
                             >
                                 <X size={16} />
                             </button>
@@ -1011,19 +1013,19 @@ export function Canvas({
                             <div className="space-y-4">
                                 {/* Fill Color */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Fill Color</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Fill Color</label>
                                     <div className="flex items-center space-x-2">
                                         <input
                                             type="color"
                                             value={fillColor}
                                             onChange={(e) => setFillColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                            className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
                                         />
                                         <input
                                             type="text"
                                             value={fillColor}
                                             onChange={(e) => setFillColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 text-sm"
                                             placeholder="#FFFFFF"
                                         />
                                     </div>
@@ -1031,19 +1033,19 @@ export function Canvas({
 
                                 {/* Stroke Color */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Stroke Color</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Stroke Color</label>
                                     <div className="flex items-center space-x-2">
                                         <input
                                             type="color"
                                             value={strokeColor}
                                             onChange={(e) => setStrokeColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                            className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
                                         />
                                         <input
                                             type="text"
                                             value={strokeColor}
                                             onChange={(e) => setStrokeColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 text-sm"
                                             placeholder="#000000"
                                         />
                                     </div>
@@ -1051,7 +1053,7 @@ export function Canvas({
 
                                 {/* Stroke Width */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Stroke Width: {strokeWidth}px</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Stroke Width: {strokeWidth}px</label>
                                     <input
                                         type="range"
                                         min="1"
@@ -1064,7 +1066,7 @@ export function Canvas({
 
                                 {/* Opacity */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Opacity: {Math.round(opacity * 100)}%</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Opacity: {Math.round(opacity * 100)}%</label>
                                     <input
                                         type="range"
                                         min="0"
@@ -1078,7 +1080,7 @@ export function Canvas({
 
                                 {/* Stroke Style */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Stroke Style</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Stroke Style</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {["solid", "dashed", "dotted", "dash-dot"].map((style) => (
                                             <button
@@ -1086,8 +1088,8 @@ export function Canvas({
                                                 onClick={() => setStrokeStyle(style as any)}
                                                 className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
                                                     strokeStyle === style
-                                                        ? 'bg-blue-600 text-white'
-                                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                                 }`}
                                             >
                                                 {style}
@@ -1098,19 +1100,19 @@ export function Canvas({
 
                                 {/* Text Color */}
                                 <div>
-                                    <label className="text-white/70 text-xs mb-2 block">Text Color</label>
+                                    <label className="text-slate-600 text-xs mb-2 block">Text Color</label>
                                     <div className="flex items-center space-x-2">
                                         <input
                                             type="color"
                                             value={textColor}
                                             onChange={(e) => setTextColor(e.target.value)}
-                                            className="w-8 h-8 rounded border border-white/20 cursor-pointer"
+                                            className="w-8 h-8 rounded border border-slate-300 cursor-pointer"
                                         />
                                         <input
                                             type="text"
                                             value={textColor}
                                             onChange={(e) => setTextColor(e.target.value)}
-                                            className="flex-1 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm"
+                                            className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 text-sm"
                                             placeholder="#000000"
                                         />
                                     </div>
@@ -1237,24 +1239,24 @@ export function Canvas({
                     </div>
 
                     {/* Quick Color Palette */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200/60 shadow-lg">
                         <div className="text-center mb-3">
-                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                            <h3 className="text-slate-700 text-xs font-medium uppercase tracking-wider">
                                 Fill Colors
                             </h3>
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                             {[
-                                '#000000', '#FFFFFF', '#FF6B6B', '#4ECDC4', 
-                                '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
-                                '#98D8C8', '#FFA500', '#800080', '#008000',
-                                '#FF0000', '#0000FF', '#FFFF00', '#FFC0CB'
+                                '#E3F2FD', '#BBDEFB', '#90CAF9', '#64B5F6', 
+                                '#42A5F5', '#2196F3', '#1E88E5', '#1976D2', 
+                                '#1565C0', '#0D47A1', '#E1F5FE', '#B3E5FC', 
+                                '#81D4FA', '#4FC3F7', '#29B6F6', '#03A9F4'
                             ].map((color) => (
                                 <button
                                     key={color}
                                     onClick={() => setFillColor(color)}
                                     className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
-                                        fillColor === color ? 'border-white' : 'border-white/20'
+                                        fillColor === color ? 'border-slate-800' : 'border-slate-300'
                                     }`}
                                     style={{ backgroundColor: color }}
                                     title={color}
@@ -1264,9 +1266,9 @@ export function Canvas({
                     </div>
 
                     {/* Text Color Palette */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200/60 shadow-lg">
                         <div className="text-center mb-3">
-                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                            <h3 className="text-slate-700 text-xs font-medium uppercase tracking-wider">
                                 Text Colors
                             </h3>
                         </div>
@@ -1281,7 +1283,7 @@ export function Canvas({
                                     key={color}
                                     onClick={() => setTextColor(color)}
                                     className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
-                                        textColor === color ? 'border-white' : 'border-white/20'
+                                        textColor === color ? 'border-slate-800' : 'border-slate-300'
                                     }`}
                                     style={{ backgroundColor: color }}
                                     title={color}
@@ -1291,24 +1293,24 @@ export function Canvas({
                     </div>
 
                     {/* Stroke Color Palette */}
-                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-slate-200/60 shadow-lg">
                         <div className="text-center mb-3">
-                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                            <h3 className="text-slate-700 text-xs font-medium uppercase tracking-wider">
                                 Stroke Colors
                             </h3>
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                             {[
-                                '#000000', '#FFFFFF', '#FF6B6B', '#4ECDC4', 
-                                '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
-                                '#98D8C8', '#FFA500', '#800080', '#008000',
-                                '#FF0000', '#0000FF', '#FFFF00', '#FFC0CB'
+                                '#1976D2', '#1565C0', '#0D47A1', '#1E88E5', 
+                                '#2196F3', '#42A5F5', '#64B5F6', '#90CAF9', 
+                                '#BBDEFB', '#E3F2FD', '#0D47A1', '#1565C0', 
+                                '#1976D2', '#1E88E5', '#2196F3', '#42A5F5'
                             ].map((color) => (
                                 <button
                                     key={color}
                                     onClick={() => setStrokeColor(color)}
                                     className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
-                                        strokeColor === color ? 'border-white' : 'border-white/20'
+                                        strokeColor === color ? 'border-slate-800' : 'border-slate-300'
                                     }`}
                                     style={{ backgroundColor: color }}
                                     title={color}
@@ -1322,8 +1324,8 @@ export function Canvas({
                     <div className="flex space-x-3">
                     <div className={`px-4 py-2 rounded-full text-sm font-medium ${
                         isConnected 
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            ? 'bg-green-100 text-green-700 border border-green-200 shadow-sm' 
+                            : 'bg-red-100 text-red-700 border border-red-200 shadow-sm'
                     }`}>
                         {isConnected ? 'Connected' : 'Disconnected'}
                         </div>
@@ -1331,11 +1333,11 @@ export function Canvas({
                         {liveAIShape && (
                             <div className={`px-4 py-2 rounded-full text-sm font-medium flex items-center space-x-2 ${
                                 isConvertingShape 
-                                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
-                                    : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                    ? 'bg-blue-100 text-blue-700 border border-blue-200 shadow-sm' 
+                                    : 'bg-green-100 text-green-700 border border-green-200 shadow-sm'
                             }`}>
                                 <div className={`w-2 h-2 rounded-full ${
-                                    isConvertingShape ? 'bg-blue-400 animate-pulse' : 'bg-green-400'
+                                    isConvertingShape ? 'bg-blue-600 animate-pulse' : 'bg-green-600'
                                 }`}></div>
                                 <span>
                                     {isConvertingShape ? 'Converting Shape...' : 'Live AI Active'}
@@ -1347,18 +1349,18 @@ export function Canvas({
 
                 <div className="absolute bottom-6 right-6">
                     {showQuickTips ? (
-                        <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-xl max-w-xs animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="bg-white/95 backdrop-blur-md rounded-xl p-4 border border-slate-200/60 shadow-lg max-w-xs animate-in slide-in-from-bottom-2 duration-300">
                             <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-white font-medium">Quick Tips</h4>
+                                <h4 className="text-slate-800 font-medium">Quick Tips</h4>
                                 <button
                                     onClick={() => setShowQuickTips(false)}
-                                    className="text-white/60 hover:text-white/80 transition-colors"
+                                    className="text-slate-500 hover:text-slate-700 transition-colors"
                                     title="Hide Quick Tips"
                                 >
                                     <X size={16} />
                                 </button>
                             </div>
-                            <ul className="text-white/70 text-sm space-y-1">
+                            <ul className="text-slate-600 text-sm space-y-1">
                                 <li>• Click and drag to draw shapes</li>
                                 <li>• Use Pencil for freehand sketching</li>
                                 <li>• Click Text tool, then click canvas and type</li>
@@ -1386,10 +1388,10 @@ export function Canvas({
                     ) : (
                         <button
                             onClick={() => setShowQuickTips(true)}
-                            className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/20 shadow-xl hover:bg-white/20 transition-colors animate-in slide-in-from-bottom-2 duration-300 group"
+                            className="bg-white/95 backdrop-blur-md rounded-xl p-3 border border-slate-200/60 shadow-lg hover:bg-white transition-all duration-200 animate-in slide-in-from-bottom-2 duration-300 group"
                             title="Show Quick Tips (Ctrl+H)"
                         >
-                            <div className="flex items-center space-x-2 text-white/70 group-hover:text-white/90">
+                            <div className="flex items-center space-x-2 text-slate-600 group-hover:text-slate-800">
                                 <Sparkles size={16} />
                                 <span className="text-sm font-medium">Show Tips</span>
                             </div>

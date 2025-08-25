@@ -134,8 +134,8 @@ export class Game {
   
   // Styling state
   private currentStyle: ShapeStyle = {
-    fillColor: "#FFFFFF",
-    strokeColor: "#000000",
+    fillColor: "#E3F2FD",
+    strokeColor: "#1976D2",
     strokeWidth: 2,
     strokeStyle: { type: "solid", width: 2 },
     opacity: 1
@@ -1359,11 +1359,11 @@ export class Game {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Create a subtle grid background
-    this.ctx.fillStyle = "rgba(15, 23, 42, 1)"; // Dark blue-gray background
+    this.ctx.fillStyle = "#ffffff"; // White background for whiteboard
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Draw subtle grid lines
-    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+    this.ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
     this.ctx.lineWidth = 1;
     
     const gridSize = 50 * this.scale;
@@ -1543,10 +1543,10 @@ export class Game {
 
     // Draw palm scrolling indicator
     if (this.isPalmScrolling) {
-      this.ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+          this.ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       
-      this.ctx.fillStyle = "#FFFFFF";
+              this.ctx.fillStyle = "#000000";
       this.ctx.font = "24px Arial";
       this.ctx.textAlign = "center";
       this.ctx.fillText("Palm Scrolling Active", this.canvas.width / 2, this.canvas.height / 2);
@@ -1557,7 +1557,7 @@ export class Game {
       this.ctx.fillStyle = "rgba(76, 205, 196, 0.2)";
       this.ctx.fillRect(10, 10, 200, 40);
       
-      this.ctx.fillStyle = "#4ECDC4";
+      this.ctx.fillStyle = "#3B82F6";
       this.ctx.font = "14px Arial";
       this.ctx.textAlign = "left";
       this.ctx.fillText(`Clipboard: ${this.clipboardShapes.length} shape(s)`, 20, 30);
