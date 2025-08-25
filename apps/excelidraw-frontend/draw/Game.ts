@@ -979,7 +979,8 @@ export class Game {
           y: worldPos.y,
           text: "",
           fontSize: 16,
-          color: "#FFFFFF"
+          color: this.currentStyle.textColor || "#FFFFFF",
+          style: { ...this.currentStyle }
         };
         
         this.historyStack.push([...this.existingShapes]);
@@ -1584,6 +1585,33 @@ export class Game {
         return;
       }
 
+      // Handle color picker tool
+      if (this.selectedTool === "colorpicker" as Tool) {
+        const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
+        if (shape && shape.style) {
+          // Copy the shape's colors to current style
+          this.currentStyle.fillColor = shape.style.fillColor;
+          this.currentStyle.strokeColor = shape.style.strokeColor;
+          this.currentStyle.textColor = shape.style.textColor;
+          
+          // Emit event to update UI
+          this.canvas.dispatchEvent(new CustomEvent('colorPicked', { 
+            detail: { 
+              fillColor: shape.style.fillColor,
+              strokeColor: shape.style.strokeColor,
+              textColor: shape.style.textColor
+            } 
+          }));
+          
+          console.log('Color picked from shape:', {
+            fillColor: shape.style.fillColor,
+            strokeColor: shape.style.strokeColor,
+            textColor: shape.style.textColor
+          });
+        }
+        return;
+      }
+
       // Handle text tool
       if (this.selectedTool === "text" as Tool) {
         // Create a new text shape
@@ -1708,7 +1736,8 @@ export class Game {
           const shape: Shape = {
             id: this.generateShapeId(),
             type: "path",
-            points: [...this.currentPathPoints]
+            points: [...this.currentPathPoints],
+            style: { ...this.currentStyle }
           };
           this.historyStack.push([...this.existingShapes]);
           this.existingShapes.push(shape);
@@ -1753,7 +1782,8 @@ export class Game {
           x: startWorldPos.x,
           y: startWorldPos.y,
           width,
-          height
+          height,
+          style: { ...this.currentStyle }
         };
       } else if (this.selectedTool === "circle") {
         const radius = Math.sqrt(width * width + height * height) / 2;
@@ -1762,7 +1792,8 @@ export class Game {
           type: "circle",
           centerX: startWorldPos.x + width / 2,
           centerY: startWorldPos.y + height / 2,
-          radius
+          radius,
+          style: { ...this.currentStyle }
         };
       } else if (this.selectedTool === "line") {
         shape = {
@@ -1771,7 +1802,8 @@ export class Game {
           startX: startWorldPos.x,
           startY: startWorldPos.y,
           endX: endWorldPos.x,
-          endY: endWorldPos.y
+          endY: endWorldPos.y,
+          style: { ...this.currentStyle }
         };
       }
 

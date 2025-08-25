@@ -1,11 +1,11 @@
 import { initDraw } from "@/draw";
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2, Layers, Eye, EyeOff, Droplets } from "lucide-react";
+import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2, Layers, Eye, EyeOff, Droplets, Pipette } from "lucide-react";
 import { Game } from "@/draw/Game";
 import { getMLBackendUrl } from "@/config";
 
-export type Tool = "circle" | "rect" | "line" | "erase" | "pencil" | "text";
+export type Tool = "circle" | "rect" | "line" | "erase" | "pencil" | "text" | "colorpicker";
 
 interface AIAnalysisResult {
   shapes?: any;
@@ -70,6 +70,24 @@ export function Canvas({
 
     useEffect(() => {
         game?.setTool(selectedTool);
+        
+        // Update cursor style based on selected tool
+        if (canvasRef.current) {
+            switch (selectedTool) {
+                case "colorpicker":
+                    canvasRef.current.style.cursor = "crosshair";
+                    break;
+                case "text":
+                    canvasRef.current.style.cursor = "text";
+                    break;
+                case "pencil":
+                    canvasRef.current.style.cursor = "crosshair";
+                    break;
+                default:
+                    canvasRef.current.style.cursor = "crosshair";
+                    break;
+            }
+        }
     }, [selectedTool, game]);
 
     // Styling effects
@@ -238,10 +256,21 @@ export function Canvas({
             }
         };
 
+        const handleColorPicked = (event: CustomEvent) => {
+            const { fillColor, strokeColor, textColor } = event.detail;
+            setFillColor(fillColor);
+            setStrokeColor(strokeColor);
+            if (textColor) {
+                setTextColor(textColor);
+            }
+        };
+
         if (canvasRef.current) {
             canvasRef.current.addEventListener('textEdit', handleTextEdit as EventListener);
+            canvasRef.current.addEventListener('colorPicked', handleColorPicked as EventListener);
             return () => {
                 canvasRef.current?.removeEventListener('textEdit', handleTextEdit as EventListener);
+                canvasRef.current?.removeEventListener('colorPicked', handleColorPicked as EventListener);
             };
         }
     }, [game]);
@@ -907,6 +936,14 @@ export function Canvas({
                                         </div>
                                     </div>
                                 )}
+                                {selectedTool === "colorpicker" && (
+                                    <div className="mb-3 px-2 py-1 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                                        <div className="flex items-center justify-center space-x-1">
+                                            <Pipette size={12} className="text-blue-300" />
+                                            <span className="text-blue-300 text-xs font-medium">Click any shape to pick its colors</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             
                             <IconButton 
@@ -944,6 +981,12 @@ export function Canvas({
                                 activated={selectedTool === "text"}
                                 icon={<Type size={20} />}
                                 label="Text"
+                            />
+                            <IconButton 
+                                onClick={() => setSelectedTool("colorpicker")}
+                                activated={selectedTool === "colorpicker"}
+                                icon={<Pipette size={20} />}
+                                label="Color Picker"
                             />
                         </div>
                     </div>
@@ -1239,6 +1282,33 @@ export function Canvas({
                                     onClick={() => setTextColor(color)}
                                     className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
                                         textColor === color ? 'border-white' : 'border-white/20'
+                                    }`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Stroke Color Palette */}
+                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-xl">
+                        <div className="text-center mb-3">
+                            <h3 className="text-white/70 text-xs font-medium uppercase tracking-wider">
+                                Stroke Colors
+                            </h3>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[
+                                '#000000', '#FFFFFF', '#FF6B6B', '#4ECDC4', 
+                                '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', 
+                                '#98D8C8', '#FFA500', '#800080', '#008000',
+                                '#FF0000', '#0000FF', '#FFFF00', '#FFC0CB'
+                            ].map((color) => (
+                                <button
+                                    key={color}
+                                    onClick={() => setStrokeColor(color)}
+                                    className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 ${
+                                        strokeColor === color ? 'border-white' : 'border-white/20'
                                     }`}
                                     style={{ backgroundColor: color }}
                                     title={color}
