@@ -8,7 +8,7 @@ import axios from 'axios';
 function Home() {
         const Router = useRouter();
     const [name, setName] = useState('');
-
+    const [userName, setUserName] = useState('');
     const [slug,setSlug] = useState('');
 
   const  createRoom =  async () => {
@@ -32,6 +32,12 @@ function Home() {
         const roomId = res.data.roomId; 
         console.log(res.data.room);
         alert(`Room created successfully! Room ID: ${roomId}`);
+        
+        // Store user name in localStorage
+        if (userName.trim()) {
+          localStorage.setItem('userName', userName.trim());
+        }
+        
         Router.push(`${getExileUrl()}/${roomId}`);
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : "Something went wrong";
@@ -50,6 +56,12 @@ function Home() {
     try{
         const res  = await axios.get(`${getBackendUrl()}/room/${slug}`);
         console.log("Room Successfully joined",res.data);
+        
+        // Store user name in localStorage
+        if (userName.trim()) {
+          localStorage.setItem('userName', userName.trim());
+        }
+        
         Router.push(`${getExileUrl()}/${slug}`);
     }catch(error: unknown){
       const errorMessage = error instanceof Error ? error.message : "Something went wrong";
@@ -86,9 +98,18 @@ function Home() {
         </div>
 
         <div className="mt-8 space-y-6">
+            <input type="text" id="userName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)} 
+                placeholder="Enter Your Name (optional)" 
+                className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            />
             <input type="text" id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)} placeholder="Enter Room Name" className= "w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-black bg-white-200 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 "/>
+                onChange={(e) => setName(e.target.value)} 
+                placeholder="Enter Room Name" 
+                className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-black bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            />
           <button
             onClick={createRoom}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"

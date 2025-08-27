@@ -16,7 +16,10 @@ wss.on("listening", () => {
 interface user {
     ws:WebSocket,
     rooms:string[],
-    userId:string
+    userId:string,
+    userName?:string,
+    isDrawing?:boolean,
+    lastActivity?:number
 }
 const users : user[] = [];
 
@@ -80,12 +83,114 @@ wss.on("connection",function connection(ws,request){
           
             if (parsedData.type === "join_room") {
                 console.log("User joining room:", parsedData.roomId);
-                user.rooms.push(parsedData.roomId);
+                
+                // Check if user is already in this room
+                if (!user.rooms.includes(parsedData.roomId)) {
+                    user.rooms.push(parsedData.roomId);
+                }
+                
+                // Get only active users in this specific room
+                const roomParticipants = users.filter(u => 
+                    u.rooms.includes(parsedData.roomId) && 
+                    u.ws.readyState === WebSocket.OPEN
+                );
+                const participantCount = roomParticipants.length;
+                
+                console.log(`Room ${parsedData.roomId} now has ${participantCount} active participants:`, 
+                    roomParticipants.map(p => p.userId));
+                
+                // Broadcast updated participant count to all users in the room
+                users.forEach(u => {
+                    if (u.rooms.includes(parsedData.roomId) && u.ws.readyState === WebSocket.OPEN) {
+                        u.ws.send(JSON.stringify({
+                            type: "participant_count_update",
+                            roomId: parsedData.roomId,
+                            count: participantCount,
+                            participants: roomParticipants.map(p => p.userId)
+                        }));
+                    }
+                });
+            }
+            
+            if (parsedData.type === "get_participant_count") {
+                const { roomId } = parsedData;
+                const roomParticipants = users.filter(u => 
+                    u.rooms.includes(roomId) && 
+                    u.ws.readyState === WebSocket.OPEN
+                );
+                const participantCount = roomParticipants.length;
+                
+                console.log(`User ${userId} requested participant count for room ${roomId}: ${participantCount} active users`);
+                
+                ws.send(JSON.stringify({
+                    type: "participant_count_update",
+                    roomId: roomId,
+                    count: participantCount,
+                    participants: roomParticipants.map(p => p.userId)
+                }));
+            }
+            
+            if (parsedData.type === "user_activity") {
+                const { roomId, activity, userName } = parsedData;
+                
+                // Update user info
+                user.userName = userName;
+                user.lastActivity = Date.now();
+                
+                // Try to get user name from database if not provided
+                if (!userName || userName.startsWith('User ')) {
+                    try {
+                        const dbUser = await prismaClient.user.findUnique({
+                            where: { id: user.userId },
+                            select: { name: true }
+                        });
+                        if (dbUser?.name) {
+                            user.userName = dbUser.name;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user name from database:', error);
+                    }
+                }
+                
+                // Broadcast user activity to all users in the room
+                users.forEach(u => {
+                    if (u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN) {
+                        u.ws.send(JSON.stringify({
+                            type: "user_activity_update",
+                            roomId: roomId,
+                            userId: user.userId,
+                            userName: user.userName || userName,
+                            activity: activity,
+                            timestamp: Date.now()
+                        }));
+                    }
+                });
             }
           
             if (parsedData.type === "leave_room") {
                 console.log("User leaving room:", parsedData.roomId);
                 user.rooms = user.rooms.filter(x => x !== parsedData.roomId);
+                
+                // Get only active users in this specific room
+                const roomParticipants = users.filter(u => 
+                    u.rooms.includes(parsedData.roomId) && 
+                    u.ws.readyState === WebSocket.OPEN
+                );
+                const participantCount = roomParticipants.length;
+                
+                console.log(`Room ${parsedData.roomId} now has ${participantCount} active participants after user left`);
+                
+                // Broadcast updated participant count to all users in the room
+                users.forEach(u => {
+                    if (u.rooms.includes(parsedData.roomId) && u.ws.readyState === WebSocket.OPEN) {
+                        u.ws.send(JSON.stringify({
+                            type: "participant_count_update",
+                            roomId: parsedData.roomId,
+                            count: participantCount,
+                            participants: roomParticipants.map(p => p.userId)
+                        }));
+                    }
+                });
             }
           
             if (parsedData.type === "chat") {
@@ -178,6 +283,10 @@ wss.on("connection",function connection(ws,request){
             if (parsedData.type === "draw") {
                 const { roomId, shape } = parsedData;
                 console.log("Draw shape in room:", roomId);
+                
+                // Update user's drawing status
+                user.isDrawing = true;
+                user.lastActivity = Date.now();
               
                 await prismaClient.chat.create({
                     data: {
@@ -191,15 +300,42 @@ wss.on("connection",function connection(ws,request){
                     }
                 });
               
+                // Try to get user name from database if not already set
+                if (!user.userName || user.userName.startsWith('User ')) {
+                    try {
+                        const dbUser = await prismaClient.user.findUnique({
+                            where: { id: user.userId },
+                            select: { name: true }
+                        });
+                        if (dbUser?.name) {
+                            user.userName = dbUser.name;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user name from database:', error);
+                    }
+                }
+                
+                // Broadcast drawing activity to all users in the room
                 users.forEach(u => {
                     if (u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN) {
                         u.ws.send(JSON.stringify({
                             type: "draw",
                             shape,
-                            roomId
+                            roomId,
+                            drawingUser: {
+                                userId: user.userId,
+                                userName: user.userName || `User ${user.userId.slice(0, 8)}`
+                            }
                         }));
                     }
                 });
+                
+                // Clear drawing status after a short delay
+                setTimeout(() => {
+                    if (user) {
+                        user.isDrawing = false;
+                    }
+                }, 2000);
             }
 
             if (parsedData.type === "erase") {
@@ -236,9 +372,39 @@ wss.on("connection",function connection(ws,request){
       
     ws.on("close", () => {
         console.log("WebSocket connection closed for user:", userId);
-        const index = users.findIndex(user => user.ws === ws);
-        if (index !== -1) {
-            users.splice(index, 1);
+        const user = users.find(user => user.ws === ws);
+        if (user) {
+            console.log(`User ${userId} was in rooms:`, user.rooms);
+            
+            // Broadcast participant count updates for all rooms the user was in
+            user.rooms.forEach(roomId => {
+                const roomParticipants = users.filter(u => 
+                    u.ws !== ws && 
+                    u.rooms.includes(roomId) && 
+                    u.ws.readyState === WebSocket.OPEN
+                );
+                const participantCount = roomParticipants.length;
+                
+                console.log(`Room ${roomId} now has ${participantCount} active participants after disconnect`);
+                
+                users.forEach(u => {
+                    if (u.ws !== ws && u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN) {
+                        u.ws.send(JSON.stringify({
+                            type: "participant_count_update",
+                            roomId: roomId,
+                            count: participantCount,
+                            participants: roomParticipants.map(p => p.userId)
+                        }));
+                    }
+                });
+            });
+            
+            // Remove user from the array
+            const index = users.findIndex(u => u.ws === ws);
+            if (index !== -1) {
+                users.splice(index, 1);
+                console.log(`Removed user ${userId} from users array. Total users: ${users.length}`);
+            }
         }
     });
       

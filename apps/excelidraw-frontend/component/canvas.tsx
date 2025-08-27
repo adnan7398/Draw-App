@@ -4,7 +4,8 @@ import { IconButton } from "./IconButton";
 import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Users, Settings, Download, Undo2, Redo2, Palette, X, Minus, Brain, Sparkles, Upload, Shapes, Layout, Type, Wand2, Download as DownloadIcon, Copy, Trash2, Layers, Eye, EyeOff, Droplets, Pipette, PenLine } from "lucide-react";
 import { Game } from "@/draw/Game";
 import { getMLBackendUrl } from "@/config";
-import { PerformanceMonitor } from "./PerformanceMonitor";
+import { DrawingIndicator } from "./DrawingIndicator";
+
 
 export type Tool = "circle" | "rect" | "line" | "erase" | "pencil" | "text" | "colorpicker";
 
@@ -29,6 +30,7 @@ export function Canvas({
     const [participantCount, setParticipantCount] = useState(1);
     const [showWelcome, setShowWelcome] = useState(true);
     const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+    const [isPanning, setIsPanning] = useState(false);
     
     // AI Tools State
     const [showAIPanel, setShowAIPanel] = useState(false);
@@ -189,12 +191,20 @@ export function Canvas({
                 setShowQuickTips(prev => !prev);
             };
             
+            // Add event listener for panning state
+            const handlePanningState = (e: Event) => {
+                const customEvent = e as CustomEvent;
+                setIsPanning(customEvent.detail.isPanning);
+            };
+            
             canvasRef.current.addEventListener('toggleQuickTips', handleToggleQuickTips);
+            canvasRef.current.addEventListener('panningState', handlePanningState);
 
             return () => {
                 g.destroy();
                 g.stopCursorBlink();
                 canvasRef.current?.removeEventListener('toggleQuickTips', handleToggleQuickTips);
+                canvasRef.current?.removeEventListener('panningState', handlePanningState);
             }
         }
     }, [canvasRef]);
@@ -203,18 +213,40 @@ export function Canvas({
         if (socket) {
             setIsConnected(socket.readyState === WebSocket.OPEN);
             
-            const handleOpen = () => setIsConnected(true);
+            const handleOpen = () => {
+                setIsConnected(true);
+                // Request current participant count when connection opens
+                socket.send(JSON.stringify({
+                    type: "get_participant_count",
+                    roomId: roomId
+                }));
+            };
             const handleClose = () => setIsConnected(false);
+            
+            const handleMessage = (event: MessageEvent) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === "participant_count_update" && data.roomId === roomId) {
+                        console.log(`Participant count updated: ${data.count} users in room ${roomId}`);
+                        setParticipantCount(data.count);
+                    }
+                } catch (error) {
+                    console.error("Error parsing WebSocket message:", error);
+                }
+            };
             
             socket.addEventListener('open', handleOpen);
             socket.addEventListener('close', handleClose);
+            socket.addEventListener('message', handleMessage);
             
             return () => {
                 socket.removeEventListener('open', handleOpen);
                 socket.removeEventListener('close', handleClose);
+                socket.removeEventListener('message', handleMessage);
             };
         }
-    }, [socket]);
+    }, [socket, roomId]);
 
     useEffect(() => {
         const updateCanvasSize = () => {
@@ -637,6 +669,9 @@ export function Canvas({
                     style={{
                         cursor: selectedTool === 'pencil' ? 'crosshair' : 'default',
                         touchAction: 'none',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none',
+                        WebkitTouchCallout: 'none'
                     }}
                 />
 
@@ -756,6 +791,15 @@ export function Canvas({
                                 : 'bg-red-50 text-red-700 border border-red-200'
                         }`}>
                             {isConnected ? 'Connected' : 'Disconnected'}
+                        </div>
+                        
+                        {/* Panning Hint */}
+                        <div className={`px-2 py-1 rounded text-xs font-medium border ${
+                            isPanning 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                            {isPanning ? '🔄 Panning active' : '💡 Tap & drag to pan'}
                         </div>
                         
                         {liveAIShape && (
@@ -1048,8 +1092,8 @@ export function Canvas({
                 )}
             </div>
             
-            {/* Performance Monitor */}
-            <PerformanceMonitor />
+            {/* Drawing Indicator */}
+            <DrawingIndicator roomId={roomId} socket={socket} />
         </div>
     );
 }
