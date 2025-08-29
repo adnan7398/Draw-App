@@ -14,7 +14,7 @@ export function getWsUrl() {
 }
 
 export function getRoomUrl() {
-    return `http://${getHost()}:3000`;
+    return `http://${getHost()}:3001`;
 }
 
 export function getExileUrl() {
