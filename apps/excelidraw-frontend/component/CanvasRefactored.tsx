@@ -11,6 +11,7 @@ import { AIPanel } from "./AIPanel";
 import { QuickTips } from "./QuickTips";
 import { WelcomeModal } from "./WelcomeModal";
 import { Header } from "./Header";
+import { ConnectedUsers } from "./ConnectedUsers";
 import { DrawingIndicator } from "./DrawingIndicator";
 
 export function CanvasRefactored({
@@ -25,6 +26,8 @@ export function CanvasRefactored({
     canvasRef,
     game,
     canvasState,
+    connectedUsers,
+    currentUser,
     setSelectedTool,
     setShowWelcome,
     setShowQuickTips
@@ -53,6 +56,7 @@ export function CanvasRefactored({
 
   // Local UI state
   const [showColorPopup, setShowColorPopup] = useState(false);
+  const [showConnectedUsers, setShowConnectedUsers] = useState(true);
 
   // Handle undo/redo
   const handleUndo = () => {
@@ -106,8 +110,10 @@ export function CanvasRefactored({
         participantCount={canvasState.participantCount}
         showAIPanel={aiToolsState.showAIPanel}
         showQuickTips={canvasState.showQuickTips}
+        showConnectedUsers={showConnectedUsers}
         onToggleAIPanel={() => setAiToolsState(prev => ({ ...prev, showAIPanel: !prev.showAIPanel }))}
         onToggleQuickTips={() => setShowQuickTips(!canvasState.showQuickTips)}
+        onToggleConnectedUsers={() => setShowConnectedUsers(!showConnectedUsers)}
       />
 
       {/* Main Canvas Area */}
@@ -157,6 +163,15 @@ export function CanvasRefactored({
           liveAIShape={aiToolsState.liveAIShape}
           isConvertingShape={aiToolsState.isConvertingShape}
         />
+
+        {/* Connected Users Panel */}
+        {showConnectedUsers && (
+          <ConnectedUsers
+            connectedUsers={connectedUsers}
+            currentUser={currentUser}
+            participantCount={canvasState.participantCount}
+          />
+        )}
 
         {/* AI Panel */}
         {aiToolsState.showAIPanel && (

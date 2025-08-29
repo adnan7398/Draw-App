@@ -1,4 +1,4 @@
-import { Tool } from "@/component/canvas";
+import { Tool } from "@/component/types";
 import { getExistingShapes } from "./http";
 
 // Styling types
@@ -2174,5 +2174,43 @@ export class Game {
     }
     
     this.ctx.restore();
+  }
+
+  // Send user activity update to WebSocket server
+  private sendUserActivity(activity: string) {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const userName = payload.name || payload.email || `User ${payload.userId.slice(0, 8)}`;
+        
+        this.socket.send(JSON.stringify({
+          type: "user_activity",
+          roomId: this.roomId,
+          activity: activity,
+          userName: userName
+        }));
+      }
+    } catch (error) {
+      console.error("Error sending user activity:", error);
+    }
+  }
+
+  // Enhanced drawing methods with activity tracking
+  private drawShape(shape: Shape) {
+    // Send drawing activity
+    this.sendUserActivity("drawing");
+    
+    // Add shape to existing shapes
+    this.existingShapes.push(shape);
+    
+    // Send shape to other users
+    this.socket.send(JSON.stringify({
+      type: "draw",
+      shape: shape,
+      roomId: this.roomId
+    }));
+    
+    this.clearCanvas();
   }
 }

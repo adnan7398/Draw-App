@@ -89,7 +89,7 @@ wss.on("connection",function connection(ws,request){
                     user.rooms.push(parsedData.roomId);
                 }
                 
-                // Get only active users in this specific room
+                // Get only active users in this specific room with detailed info
                 const roomParticipants = users.filter(u => 
                     u.rooms.includes(parsedData.roomId) && 
                     u.ws.readyState === WebSocket.OPEN
@@ -106,7 +106,12 @@ wss.on("connection",function connection(ws,request){
                             type: "participant_count_update",
                             roomId: parsedData.roomId,
                             count: participantCount,
-                            participants: roomParticipants.map(p => p.userId)
+                            participants: roomParticipants.map(p => ({
+                                userId: p.userId,
+                                userName: p.userName || `User ${p.userId.slice(0, 8)}`,
+                                isDrawing: p.isDrawing || false,
+                                lastActivity: p.lastActivity || Date.now()
+                            }))
                         }));
                     }
                 });
@@ -126,7 +131,12 @@ wss.on("connection",function connection(ws,request){
                     type: "participant_count_update",
                     roomId: roomId,
                     count: participantCount,
-                    participants: roomParticipants.map(p => p.userId)
+                    participants: roomParticipants.map(p => ({
+                        userId: p.userId,
+                        userName: p.userName || `User ${p.userId.slice(0, 8)}`,
+                        isDrawing: p.isDrawing || false,
+                        lastActivity: p.lastActivity || Date.now()
+                    }))
                 }));
             }
             
@@ -393,7 +403,12 @@ wss.on("connection",function connection(ws,request){
                             type: "participant_count_update",
                             roomId: roomId,
                             count: participantCount,
-                            participants: roomParticipants.map(p => p.userId)
+                            participants: roomParticipants.map(p => ({
+                                userId: p.userId,
+                                userName: p.userName || `User ${p.userId.slice(0, 8)}`,
+                                isDrawing: p.isDrawing || false,
+                                lastActivity: p.lastActivity || Date.now()
+                            }))
                         }));
                     }
                 });

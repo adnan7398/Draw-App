@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { CanvasState, Tool } from '@/component/types';
 import { Game } from '@/draw/Game';
 
+interface ConnectedUser {
+  userId: string;
+  userName?: string;
+  isDrawing?: boolean;
+  lastActivity?: number;
+}
+
 export function useCanvasState(roomId: string, socket: WebSocket) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [game, setGame] = useState<Game>();
@@ -13,6 +20,10 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
     canvasSize: { width: 0, height: 0 },
     isPanning: false
   });
+  
+  // Enhanced user tracking
+  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
+  const [currentUser, setCurrentUser] = useState<ConnectedUser | null>(null);
 
   // Initialize canvas and game
   useEffect(() => {
@@ -80,12 +91,40 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
       
       const handleOpen = () => {
         setCanvasState(prev => ({ ...prev, isConnected: true }));
+        
+        // Get current user info from localStorage
+        const token = localStorage.getItem("authToken");
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const currentUserInfo: ConnectedUser = {
+              userId: payload.userId,
+              userName: payload.name || payload.email || `User ${payload.userId.slice(0, 8)}`,
+              lastActivity: Date.now()
+            };
+            setCurrentUser(currentUserInfo);
+          } catch (error) {
+            console.error("Error parsing user token:", error);
+          }
+        }
+        
         // Request current participant count when connection opens
         socket.send(JSON.stringify({
           type: "get_participant_count",
           roomId: roomId
         }));
+        
+        // Send user activity to update user list
+        if (currentUser) {
+          socket.send(JSON.stringify({
+            type: "user_activity",
+            roomId: roomId,
+            activity: "joined",
+            userName: currentUser.userName
+          }));
+        }
       };
+      
       const handleClose = () => setCanvasState(prev => ({ ...prev, isConnected: false }));
       
       const handleMessage = (event: MessageEvent) => {
@@ -95,6 +134,58 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
           if (data.type === "participant_count_update" && data.roomId === roomId) {
             console.log(`Participant count updated: ${data.count} users in room ${roomId}`);
             setCanvasState(prev => ({ ...prev, participantCount: data.count }));
+            
+            // Update connected users list if participants data is provided
+            if (data.participants) {
+              // Handle enhanced participant data from backend
+              const users: ConnectedUser[] = data.participants.map((participant: any) => ({
+                userId: participant.userId,
+                userName: participant.userName || `User ${participant.userId.slice(0, 8)}`,
+                lastActivity: participant.lastActivity || Date.now(),
+                isDrawing: participant.isDrawing || false
+              }));
+              setConnectedUsers(users);
+            }
+          }
+          
+          if (data.type === "user_activity_update" && data.roomId === roomId) {
+            console.log(`User activity: ${data.userName} - ${data.activity}`);
+            
+            setConnectedUsers(prev => {
+              const existingUserIndex = prev.findIndex(u => u.userId === data.userId);
+              
+              if (existingUserIndex >= 0) {
+                // Update existing user
+                const updatedUsers = [...prev];
+                updatedUsers[existingUserIndex] = {
+                  ...updatedUsers[existingUserIndex],
+                  userName: data.userName,
+                  lastActivity: data.timestamp,
+                  isDrawing: data.activity === 'drawing'
+                };
+                return updatedUsers;
+              } else {
+                // Add new user
+                return [...prev, {
+                  userId: data.userId,
+                  userName: data.userName,
+                  lastActivity: data.timestamp,
+                  isDrawing: data.activity === 'drawing'
+                }];
+              }
+            });
+          }
+          
+          if (data.type === "draw" && data.roomId === roomId) {
+            // Update drawing status for the user who is drawing
+            if (data.drawingUser) {
+              setConnectedUsers(prev => {
+                return prev.map(user => ({
+                  ...user,
+                  isDrawing: user.userId === data.drawingUser.userId
+                }));
+              });
+            }
           }
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);
@@ -111,7 +202,7 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
         socket.removeEventListener('message', handleMessage);
       };
     }
-  }, [socket, roomId]);
+  }, [socket, roomId, currentUser]);
 
   // Handle canvas size updates
   useEffect(() => {
@@ -148,6 +239,8 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
     canvasRef,
     game,
     canvasState,
+    connectedUsers,
+    currentUser,
     setSelectedTool,
     setShowWelcome,
     setShowQuickTips

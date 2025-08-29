@@ -83,6 +83,15 @@ export interface AIAnalysisResult {
   suggestions?: any;
 }
 
+// User tracking types
+export interface ConnectedUser {
+  userId: string;
+  userName?: string;
+  isDrawing?: boolean;
+  lastActivity?: number;
+  userColor?: string; // For visual distinction
+}
+
 // Canvas state types
 export interface CanvasState {
   selectedTool: Tool;
