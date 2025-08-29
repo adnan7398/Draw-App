@@ -66,16 +66,14 @@ export const CreateRoomSchema = z.object({
     .min(4, "Password must be at least 4 characters")
     .max(50, "Password must be less than 50 characters")
     .optional()
-    .refine((password, ctx) => {
-      if (ctx.parent?.isPrivate && !password) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Password is required for private rooms"
-        });
-        return false;
-      }
-      return true;
-    })
+}).refine((data) => {
+  if (data.isPrivate && !data.password) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Password is required for private rooms",
+  path: ["password"]
 });
 
 // Response types for better error handling

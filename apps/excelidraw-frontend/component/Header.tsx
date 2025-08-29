@@ -1,4 +1,6 @@
 import { PenLine, Users, Brain, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 interface HeaderProps {
   roomId: string;
@@ -12,6 +14,14 @@ interface HeaderProps {
   showConnectedUsers?: boolean;
 }
 
+interface RoomInfo {
+  id: number;
+  name: string;
+  slug: string;
+  roomCode?: string;
+  isPrivate?: boolean;
+}
+
 export function Header({ 
   roomId, 
   isConnected, 
@@ -23,6 +33,42 @@ export function Header({
   onToggleConnectedUsers,
   showConnectedUsers = true
 }: HeaderProps) {
+  const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRoomInfo = async () => {
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem("authToken");
+        
+        // Try to get room info by ID
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002'}/room/id/${roomId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.data.success) {
+          setRoomInfo(response.data.room);
+        }
+      } catch (error) {
+        console.error("Failed to fetch room info:", error);
+        // If room info fetch fails, we'll just show the room ID
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (roomId) {
+      fetchRoomInfo();
+    }
+  }, [roomId]);
+
+  const getBackendUrl = () => {
+    return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
+  };
+
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
       {/* Left side - App branding and room info */}
@@ -34,7 +80,20 @@ export function Header({
         
         <div className="flex items-center space-x-2 text-sm text-gray-600">
           <span>Room:</span>
-          <span className="font-mono bg-gray-100 px-2 py-1 rounded">{roomId}</span>
+          {isLoading ? (
+            <span className="font-mono bg-gray-100 px-2 py-1 rounded">Loading...</span>
+          ) : roomInfo ? (
+            <div className="flex items-center space-x-2">
+              <span className="font-medium text-gray-900">{roomInfo.name}</span>
+              {roomInfo.isPrivate && roomInfo.roomCode && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                  Code: {roomInfo.roomCode}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="font-mono bg-gray-100 px-2 py-1 rounded">{roomId}</span>
+          )}
         </div>
       </div>
 

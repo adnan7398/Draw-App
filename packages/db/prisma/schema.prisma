@@ -21,6 +21,7 @@ model Room {
   id         Int      @id @default(autoincrement())
   name       String
   slug       String   @unique
+  roomCode   String?  @unique // Random code for private rooms
   created_at DateTime @default(now())
   adminId    String
   password   String?  // Optional password for private rooms

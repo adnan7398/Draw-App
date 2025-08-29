@@ -260,7 +260,7 @@ app.post("/signin", async (req, res) => {
 
 app.post("/room", Middleware, async (req, res) => {
   try {
-    const parsedData = CreateRoomSchema.safeParse(req.body);
+    const parsedData = CreateRoomSchema.safeParse(req.body); 
     
     if (!parsedData.success) {
       const errors: Record<string, string[]> = {};
@@ -280,31 +280,46 @@ app.post("/room", Middleware, async (req, res) => {
       });
     }
 
-    const { name } = parsedData.data;
+    const { name, isPrivate, password } = parsedData.data;
     
     // @ts-ignore: TODO: Fix this
-    const userId = req.userId;
+        const userId = req.userId;
 
     // Generate a unique slug for the room
     const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+
+    // Generate room code for private rooms
+    let roomCode = null;
+    if (isPrivate) {
+      roomCode = Math.random().toString(36).substring(2, 8).toUpperCase(); // 6-character code
+    }
+
+    // Hash password if room is private
+    let hashedPassword = null;
+    if (isPrivate && password) {
+      hashedPassword = await bcrypt.hash(password, 12);
+    }
 
     const room = await prismaClient.room.create({
       data: {
         name,
         slug,
-        adminId: userId
-      }
-    });
-
-    res.json({
+        roomCode,
+        adminId: userId,
+        password: hashedPassword
+            }
+        });
+        
+        res.json({
       success: true,
       message: "Room created successfully!",
-      roomId: room.id
+      roomId: room.id,
+      roomCode: room.roomCode
     });
 
-  } catch (error) {
+    } catch (error) {
     console.error("Room creation error:", error);
-    res.status(500).json({
+        res.status(500).json({
       success: false,
       message: error instanceof Error ? error.message : "Failed to create room"
     });
@@ -344,14 +359,56 @@ app.get("/profile", Middleware, async (req, res) => {
 
     res.json({
       success: true,
-      user
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt
+      }
     });
 
   } catch (error) {
-    console.error("Profile error:", error);
+    console.error("Profile fetch error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch profile"
+    });
+  }
+});
+
+// Get room by ID
+app.get("/room/id/:roomId", async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    const room = await prismaClient.room.findUnique({
+      where: { id: parseInt(roomId) }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      room: {
+        id: room.id,
+        name: room.name,
+        slug: room.slug,
+        roomCode: room.roomCode,
+        createdAt: room.created_at,
+        isPrivate: !!room.password
+      }
+    });
+
+  } catch (error) {
+    console.error("Room fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch room"
     });
   }
 });
@@ -409,7 +466,9 @@ app.get("/room/:slug", async (req, res) => {
         id: room.id,
         name: room.name,
         slug: room.slug,
-        createdAt: room.created_at
+        roomCode: room.roomCode,
+        createdAt: room.created_at,
+        isPrivate: !!room.password
       }
     });
 
@@ -418,6 +477,96 @@ app.get("/room/:slug", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch room"
+    });
+  }
+});
+
+// Get room by code
+app.get("/room/code/:roomCode", async (req, res) => {
+  try {
+    const { roomCode } = req.params;
+    
+    const room = await prismaClient.room.findUnique({
+      where: { roomCode: roomCode }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      room: {
+        id: room.id,
+        name: room.name,
+        slug: room.slug,
+        roomCode: room.roomCode,
+        createdAt: room.created_at,
+        isPrivate: !!room.password
+      }
+    });
+
+  } catch (error) {
+    console.error("Room fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch room"
+    });
+  }
+});
+
+// Verify room password
+app.post("/room/verify-password", async (req, res) => {
+  try {
+    const { roomId, password } = req.body;
+    
+    if (!roomId || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Room ID and password are required"
+      });
+    }
+
+    const room = await prismaClient.room.findUnique({
+      where: { id: parseInt(roomId) }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found"
+      });
+    }
+
+    if (!room.password) {
+      return res.status(400).json({
+        success: false,
+        message: "This room is not password protected"
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, room.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Incorrect password"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Password verified successfully"
+    });
+
+  } catch (error) {
+    console.error("Password verification error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to verify password"
     });
   }
 });
@@ -449,7 +598,7 @@ app.get("/chats/:roomId", async (req, res) => {
             email: true
           }
         }
-      }
+        }
     });
 
     res.json({

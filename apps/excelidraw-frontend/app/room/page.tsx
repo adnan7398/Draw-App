@@ -9,6 +9,7 @@ interface Room {
   id: number;
   name: string;
   slug: string;
+  roomCode?: string;
   createdAt: string;
   isPrivate?: boolean;
 }
@@ -18,6 +19,8 @@ function Home() {
   const [roomName, setRoomName] = useState('');
   const [roomId, setRoomId] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [roomPassword, setRoomPassword] = useState('');
+  const [joinPassword, setJoinPassword] = useState('');
   const [myRooms, setMyRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -58,6 +61,11 @@ function Home() {
       return;
     }
 
+    if (isPrivate && !roomPassword.trim()) {
+      alert("Please enter a password for private rooms");
+      return;
+    }
+
     try {
       setIsLoading(true);
       const token = localStorage.getItem("authToken");
@@ -70,7 +78,8 @@ function Home() {
         `${getBackendUrl()}/room`,
         { 
           name: roomName,
-          isPrivate: isPrivate
+          isPrivate: isPrivate,
+          password: isPrivate ? roomPassword : undefined
         },
         {
           headers: {
@@ -82,8 +91,17 @@ function Home() {
 
       if (response.data.success) {
         const roomId = response.data.roomId;
-        alert(`Room created successfully! Room ID: ${roomId}`);
+        const roomCode = response.data.roomCode;
+        
+        if (isPrivate && roomCode) {
+          alert(`Private room created successfully!\nRoom ID: ${roomId}\nRoom Code: ${roomCode}\n\nShare this code with others to join your private room.`);
+        } else {
+          alert(`Room created successfully! Room ID: ${roomId}`);
+        }
+        
         setRoomName('');
+        setRoomPassword('');
+        setIsPrivate(false);
         fetchMyRooms(); // Refresh the rooms list
         Router.push(`${getExileUrl()}/${roomId}`);
       }
@@ -97,17 +115,18 @@ function Home() {
 
   const joinRoom = async () => {
     if (!roomId.trim()) {
-      alert("Please enter a room ID");
+      alert("Please enter a room ID or code");
+      return;
+    }
+
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      alert("You are not authenticated. Please sign in.");
       return;
     }
 
     try {
       setIsLoading(true);
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        alert("You are not authenticated. Please sign in.");
-        return;
-      }
 
       // Try to get room info by ID first
       const response = await axios.get(`${getBackendUrl()}/room/id/${roomId}`, {
@@ -117,23 +136,120 @@ function Home() {
       });
 
       if (response.data.success) {
-        Router.push(`${getExileUrl()}/${roomId}`);
+        const room = response.data.room;
+        
+        // Check if room is private and requires password
+        if (room.isPrivate) {
+          const password = prompt("This is a private room. Please enter the password:");
+          if (!password) {
+            alert("Password is required for private rooms");
+            setIsLoading(false);
+            return;
+          }
+
+          // Verify password
+          const verifyResponse = await axios.post(`${getBackendUrl()}/room/verify-password`, {
+            roomId: room.id,
+            password: password
+          }, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!verifyResponse.data.success) {
+            alert("Incorrect password for private room");
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        Router.push(`${getExileUrl()}/${room.id}`);
       }
     } catch (error: any) {
-      // If room not found by ID, try by slug
+      // If room not found by ID, try by code
       try {
-        const response = await axios.get(`${getBackendUrl()}/room/${roomId}`, {
+        const response = await axios.get(`${getBackendUrl()}/room/code/${roomId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
         if (response.data.success) {
-          Router.push(`${getExileUrl()}/${roomId}`);
+          const room = response.data.room;
+          
+          // Check if room is private and requires password
+          if (room.isPrivate) {
+            const password = prompt("This is a private room. Please enter the password:");
+            if (!password) {
+              alert("Password is required for private rooms");
+              setIsLoading(false);
+              return;
+            }
+
+            // Verify password
+            const verifyResponse = await axios.post(`${getBackendUrl()}/room/verify-password`, {
+              roomId: room.id,
+              password: password
+            }, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (!verifyResponse.data.success) {
+              alert("Incorrect password for private room");
+              setIsLoading(false);
+              return;
+            }
+          }
+
+          Router.push(`${getExileUrl()}/${room.id}`);
         }
-      } catch (slugError: any) {
-        const errorMessage = slugError.response?.data?.message || "Room not found";
-        alert(`Error: ${errorMessage}`);
+      } catch (codeError: any) {
+        // If room not found by code, try by slug
+        try {
+          const response = await axios.get(`${getBackendUrl()}/room/${roomId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (response.data.success) {
+            const room = response.data.room;
+            
+            // Check if room is private and requires password
+            if (room.isPrivate) {
+              const password = prompt("This is a private room. Please enter the password:");
+              if (!password) {
+                alert("Password is required for private rooms");
+                setIsLoading(false);
+                return;
+              }
+
+              // Verify password
+              const verifyResponse = await axios.post(`${getBackendUrl()}/room/verify-password`, {
+                roomId: room.id,
+                password: password
+              }, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (!verifyResponse.data.success) {
+                alert("Incorrect password for private room");
+                setIsLoading(false);
+                return;
+              }
+            }
+
+            Router.push(`${getExileUrl()}/${room.id}`);
+          }
+        } catch (slugError: any) {
+          const errorMessage = slugError.response?.data?.message || "Room not found";
+          alert(`Error: ${errorMessage}`);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -202,6 +318,16 @@ function Home() {
                   </label>
                 </div>
 
+                {isPrivate && (
+                  <input
+                    type="password"
+                    value={roomPassword}
+                    onChange={(e) => setRoomPassword(e.target.value)}
+                    placeholder="Enter Password (for private rooms)"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                )}
+
                 <button
                   onClick={createRoom}
                   disabled={isLoading}
@@ -221,9 +347,12 @@ function Home() {
                   type="text"
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
-                  placeholder="Enter Room ID (e.g., ABC123)"
+                  placeholder="Enter Room ID or Code (e.g., 123 or ABC123)"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
+                <p className="text-xs text-gray-500">
+                  For private rooms, use the 6-character room code shared by the room creator.
+                </p>
                 <button
                   onClick={joinRoom}
                   disabled={isLoading}
@@ -269,12 +398,15 @@ function Home() {
                       <div>
                         <h3 className="font-medium text-gray-900">{room.name}</h3>
                         <p className="text-sm text-gray-500">ID: {room.id}</p>
+                        {room.isPrivate && room.roomCode && (
+                          <p className="text-sm text-purple-600 font-medium">Code: {room.roomCode}</p>
+                        )}
                         <p className="text-xs text-gray-400">
                           Created: {new Date(room.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {room.isPrivate && <Lock className="w-4 h-4 text-gray-400" />}
+                        {room.isPrivate && <Lock className="w-4 h-4 text-purple-500" />}
                         <MessageCircle className="w-4 h-4 text-gray-400" />
                       </div>
                     </div>
