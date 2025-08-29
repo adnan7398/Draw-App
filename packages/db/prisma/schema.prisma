@@ -9,7 +9,7 @@ datasource db {
 
 model User {
   id       String  @id @default(uuid())
-  email    String
+  email    String  @unique
   password String
   name     String
   photo    String?
@@ -19,18 +19,21 @@ model User {
 
 model Room {
   id         Int      @id @default(autoincrement())
+  name       String
   slug       String   @unique
   created_at DateTime @default(now())
-  admindId   String
+  adminId    String
+  password   String?  // Optional password for private rooms
   chats      Chat[]
-  admin      User     @relation(fields: [admindId], references: [id])
+  admin      User     @relation(fields: [adminId], references: [id])
 }
 
 model Chat {
-  id      Int    @id @default(autoincrement())
-  roomId  Int
-  message String
-  userId  String
-  room    Room   @relation(fields: [roomId], references: [id])
-  user    User   @relation(fields: [userId], references: [id])
+  id        Int      @id @default(autoincrement())
+  roomId    Int
+  message   String
+  userId    String
+  createdAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }

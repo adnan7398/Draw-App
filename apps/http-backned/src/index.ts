@@ -1,158 +1,480 @@
 import express from "express";
 import Jwt from "jsonwebtoken";
-import {JWT_SECRET}  from "@repo/backend-common/config"
-import {CreateUserSchema,SigninSchema,CreateRoomSchema} from "@repo/common/types"
-import {prismaClient} from "@repo/db/client"
+import { JWT_SECRET } from "@repo/backend-common/config"
+import { CreateUserSchema, SigninSchema, CreateRoomSchema, AuthResponse, AUTH_ERROR_MESSAGES } from "@repo/common/types"
+import { prismaClient } from "@repo/db/client"
 import { parse } from "path";
 import { Middleware } from "./middleware";
 import cors from "cors";
 import bcrypt from "bcrypt";
+
 const app = express();
 app.use(cors())
 app.use(express.json());
 
+// Rate limiting for security
+const loginAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil?: number }>();
 
-app.post("/signup",async(req,res)=>{
-    const parsedData = CreateUserSchema.safeParse(req.body)
-    console.log(parsedData.error);
-    if(!parsedData.success){
-        console.log(parsedData.error);
-         res.json({
-            message:"Incorrect Input"
-        })
-        return ;
-    }
-    const email  = parsedData.data.email;
-    const password = parsedData.data.password;  
-    const name = parsedData.data.name;
-    try {
-        const hashPassword = await bcrypt.hash(password,10);
-        const user = await prismaClient.user.create({
-            data:{
-                email:email,
-                password:hashPassword,
-                name:name,
-            }
-        })
-        res.json({
-            userId : user.id
-        })
-    } catch (e) {
-        res.status(411).json({
-            message:"User Already Exist with this username"
-        })
-    }
-})
+const RATE_LIMIT = {
+  MAX_ATTEMPTS: 5,
+  LOCK_DURATION: 15 * 60 * 1000, // 15 minutes
+  RESET_AFTER: 60 * 60 * 1000, // 1 hour
+};
 
-app.post("/signin",async(req,res)=>{
+// Helper function to check rate limiting
+function checkRateLimit(email: string): { allowed: boolean; remainingAttempts: number; lockedUntil?: number } {
+  const now = Date.now();
+  const attempts = loginAttempts.get(email) || { count: 0, lastAttempt: 0 };
+
+  // Reset if enough time has passed
+  if (now - attempts.lastAttempt > RATE_LIMIT.RESET_AFTER) {
+    loginAttempts.delete(email);
+    return { allowed: true, remainingAttempts: RATE_LIMIT.MAX_ATTEMPTS };
+  }
+
+  // Check if account is locked
+  if (attempts.lockedUntil && now < attempts.lockedUntil) {
+    return { 
+      allowed: false, 
+      remainingAttempts: 0, 
+      lockedUntil: attempts.lockedUntil 
+    };
+  }
+
+  // Clear lock if time has passed
+  if (attempts.lockedUntil && now >= attempts.lockedUntil) {
+    attempts.lockedUntil = undefined;
+    attempts.count = 0;
+  }
+
+  return { 
+    allowed: attempts.count < RATE_LIMIT.MAX_ATTEMPTS, 
+    remainingAttempts: Math.max(0, RATE_LIMIT.MAX_ATTEMPTS - attempts.count)
+  };
+}
+
+// Helper function to record failed login attempt
+function recordFailedAttempt(email: string) {
+  const now = Date.now();
+  const attempts = loginAttempts.get(email) || { count: 0, lastAttempt: 0 };
+  
+  attempts.count += 1;
+  attempts.lastAttempt = now;
+
+  // Lock account if max attempts reached
+  if (attempts.count >= RATE_LIMIT.MAX_ATTEMPTS) {
+    attempts.lockedUntil = now + RATE_LIMIT.LOCK_DURATION;
+  }
+
+  loginAttempts.set(email, attempts);
+}
+
+// Helper function to clear failed attempts on successful login
+function clearFailedAttempts(email: string) {
+  loginAttempts.delete(email);
+}
+
+app.post("/signup", async (req, res) => {
+  try {
+    // Validate input data
+    const parsedData = CreateUserSchema.safeParse(req.body);
+    
+    if (!parsedData.success) {
+      const errors: Record<string, string[]> = {};
+      
+      parsedData.error.errors.forEach((error) => {
+        const field = error.path.join('.');
+        if (!errors[field]) {
+          errors[field] = [];
+        }
+        errors[field].push(error.message);
+      });
+
+      const response: AuthResponse = {
+        success: false,
+        message: "Validation failed",
+        errors
+      };
+      
+      return res.status(400).json(response);
+    }
+
+    const { email, password, name } = parsedData.data;
+
+    // Check if user already exists
+    const existingUser = await prismaClient.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      const response: AuthResponse = {
+        success: false,
+        message: AUTH_ERROR_MESSAGES.EMAIL_ALREADY_EXISTS
+      };
+      return res.status(409).json(response);
+    }
+
+    // Hash password
+    const hashPassword = await bcrypt.hash(password, 12); // Increased salt rounds for security
+
+    // Create user
+    const user = await prismaClient.user.create({
+      data: {
+        email,
+        password: hashPassword,
+        name,
+      }
+    });
+
+    // Generate JWT token
+    const token = Jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        name: user.name
+      }, 
+      JWT_SECRET,
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
+    const response: AuthResponse = {
+      success: true,
+      message: "Account created successfully!",
+      token,
+      userId: user.id
+    };
+
+    res.status(201).json(response);
+
+  } catch (error) {
+    console.error("Signup error:", error);
+    
+    const response: AuthResponse = {
+      success: false,
+      message: AUTH_ERROR_MESSAGES.SERVER_ERROR
+    };
+    
+    res.status(500).json(response);
+  }
+});
+
+app.post("/signin", async (req, res) => {
+  try {
+    // Validate input data
     const parsedData = SigninSchema.safeParse(req.body);
-    if(!parsedData.success){
-        res.json({
-            message:"Invalid SignIn detail"
-        })
-        return ;
-    }
-    const email= parsedData.data.email 
-    const password = parsedData.data.password;
-    const user = await prismaClient.user.findFirst({
-        where:{
-            email:email,
+    
+    if (!parsedData.success) {
+      const errors: Record<string, string[]> = {};
+      
+      parsedData.error.errors.forEach((error) => {
+        const field = error.path.join('.');
+        if (!errors[field]) {
+          errors[field] = [];
         }
-    })
-    if(!user){
-        res.status(403).json({
-            message:"Not Authorized"
-        })
-        return 
-    }
-    const comparepassword = await bcrypt.compare(password,user.password);
-    if(!comparepassword){
-        res.status(403).json({
-            message:"Not Authorized,....."
-        })
-        return
+        errors[field].push(error.message);
+      });
+
+      const response: AuthResponse = {
+        success: false,
+        message: "Validation failed",
+        errors
+      };
+      
+      return res.status(400).json(response);
     }
 
-    const token  = Jwt.sign({
-        userId :user?.id
-    },JWT_SECRET);
-   res.json({   
-       token 
-   })
-})
+    const { email, password } = parsedData.data;
 
-app.post("/room",Middleware,async(req,res)=>{
-    const parsedData = CreateRoomSchema.safeParse(req.body); 
-    if(!parsedData.success){
-        console.log(parsedData.error);
-        res.json({  
-            Message:"invalid input"
-        })
-        return ;
+    // Check rate limiting
+    const rateLimit = checkRateLimit(email);
+    if (!rateLimit.allowed) {
+      const response: AuthResponse = {
+        success: false,
+        message: AUTH_ERROR_MESSAGES.ACCOUNT_LOCKED
+      };
+      return res.status(429).json(response);
     }
-    try {
-        //@ts-ignore
-        const userId = req.userId;
-        const room = await prismaClient.room.create({
-            data:{
-                slug:parsedData.data.name,
-                admindId:userId
-            }
-        })
-        res.json({
-            roomId :room.id 
-        })
-    } catch (error) {
-        res.status(411).json({
-            message:"this room is already exist"
-        })
+
+    // Find user
+    const user = await prismaClient.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      recordFailedAttempt(email);
+      
+      const response: AuthResponse = {
+        success: false,
+        message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS
+      };
+      return res.status(401).json(response);
     }
-})
-app.get("/chats/:roomId",async (req,res)=>{
-    try {
-        const roomId = Number(req.params.roomId);
-        const messages  = await prismaClient.chat.findMany({
-           where:{
-            roomId:roomId,
-           },
-           orderBy:{
-                id:"asc"  // Changed to ascending to maintain proper order
-           },
-           take:1000  // Increased limit to handle more messages
-        })
-        
-        // Filter out invalid messages and add proper error handling
-        const validMessages = messages.filter(msg => {
-            try {
-                if (!msg.message) return false;
-                const parsed = JSON.parse(msg.message);
-                return parsed && (parsed.type || parsed.shape); // Accept both old and new format
-            } catch {
-                return false; // Skip invalid JSON messages
-            }
-        });
-        
-        res.json({
-            messages: validMessages
-        })
-    } catch (error) {
-        console.error("Error fetching chats:", error);
-        res.status(500).json({
-            error: "Failed to fetch chat messages"
-        });
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      recordFailedAttempt(email);
+      
+      const response: AuthResponse = {
+        success: false,
+        message: AUTH_ERROR_MESSAGES.INVALID_CREDENTIALS
+      };
+      return res.status(401).json(response);
     }
-})
-app.get("/room/:slug", async (req, res) => {
-    const slug = req.params.slug;
-    const room = await prismaClient.room.findFirst({
-        where: {
-            slug
+
+    // Clear failed attempts on successful login
+    clearFailedAttempts(email);
+
+    // Generate JWT token
+    const token = Jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        name: user.name
+      }, 
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const response: AuthResponse = {
+      success: true,
+      message: "Signed in successfully!",
+      token,
+      userId: user.id
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error("Signin error:", error);
+    
+    const response: AuthResponse = {
+      success: false,
+      message: AUTH_ERROR_MESSAGES.SERVER_ERROR
+    };
+    
+    res.status(500).json(response);
+  }
+});
+
+app.post("/room", Middleware, async (req, res) => {
+  try {
+    const parsedData = CreateRoomSchema.safeParse(req.body);
+    
+    if (!parsedData.success) {
+      const errors: Record<string, string[]> = {};
+      
+      parsedData.error.errors.forEach((error) => {
+        const field = error.path.join('.');
+        if (!errors[field]) {
+          errors[field] = [];
         }
+        errors[field].push(error.message);
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors
+      });
+    }
+
+    const { name } = parsedData.data;
+    
+    // @ts-ignore: TODO: Fix this
+    const userId = req.userId;
+
+    // Generate a unique slug for the room
+    const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+
+    const room = await prismaClient.room.create({
+      data: {
+        name,
+        slug,
+        adminId: userId
+      }
     });
 
     res.json({
-        roomId: room?.id
-    })
-})
-app.listen(3002, '0.0.0.0');
+      success: true,
+      message: "Room created successfully!",
+      roomId: room.id
+    });
+
+  } catch (error) {
+    console.error("Room creation error:", error);
+    res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to create room"
+    });
+  }
+});
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// Get user profile (protected route)
+app.get("/profile", Middleware, async (req, res) => {
+  try {
+    // @ts-ignore: TODO: Fix this
+    const userId = req.userId;
+
+    const user = await prismaClient.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      user
+    });
+
+  } catch (error) {
+    console.error("Profile error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch profile"
+    });
+  }
+});
+
+// Get user's rooms
+app.get("/rooms/my", Middleware, async (req, res) => {
+  try {
+    // @ts-ignore: TODO: Fix this
+    const userId = req.userId;
+
+    const rooms = await prismaClient.room.findMany({
+      where: { adminId: userId },
+      orderBy: { created_at: 'desc' }
+    });
+
+    res.json({
+      success: true,
+      rooms: rooms.map(room => ({
+        id: room.id,
+        name: room.name,
+        slug: room.slug,
+        createdAt: room.created_at,
+        isPrivate: false // For now, all rooms are public
+      }))
+    });
+
+  } catch (error) {
+    console.error("My rooms fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch rooms"
+    });
+  }
+});
+
+// Get room by slug (must come after /room/id/:roomId to avoid conflicts)
+app.get("/room/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    
+    const room = await prismaClient.room.findUnique({
+      where: { slug: slug }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      room: {
+        id: room.id,
+        name: room.name,
+        slug: room.slug,
+        createdAt: room.created_at
+      }
+    });
+
+  } catch (error) {
+    console.error("Room fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch room"
+    });
+  }
+});
+
+// Get chat messages for a room
+app.get("/chats/:roomId", async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    
+    const room = await prismaClient.room.findUnique({
+      where: { id: parseInt(roomId) }
+    });
+
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found"
+      });
+    }
+
+    const messages = await prismaClient.chat.findMany({
+      where: { roomId: parseInt(roomId) },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      messages: messages.map(msg => ({
+        id: msg.id,
+        message: msg.message,
+        userId: msg.userId,
+        roomId: msg.roomId,
+        user: msg.user,
+        createdAt: msg.createdAt
+      }))
+    });
+
+  } catch (error) {
+    console.error("Chat messages error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch chat messages"
+    });
+  }
+});
+
+const PORT = process.env.PORT || 3002;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 

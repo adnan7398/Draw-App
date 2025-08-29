@@ -198,8 +198,6 @@ export function useAITools(canvasRef: React.RefObject<HTMLCanvasElement>, roomId
         
         // Show success message
         setAiToolsState(prev => ({ ...prev, aiError: '' }));
-        
-        // Show success notification
         setTimeout(() => {
           setAiToolsState(prev => ({ ...prev, aiError: 'Shape converted successfully! ✨' }));
           setTimeout(() => setAiToolsState(prev => ({ ...prev, aiError: '' })), 3000);
