@@ -345,16 +345,16 @@ app.get("/profile", Middleware, async (req, res) => {
       select: {
         id: true,
         email: true,
-        name: true,
-        createdAt: true
+        name: true
       }
     });
 
     if (!user) {
-      return res.status(404).json({
+      res.status(404).json({
         success: false,
         message: "User not found"
       });
+      return;
     }
 
     res.json({
@@ -362,8 +362,7 @@ app.get("/profile", Middleware, async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
-        createdAt: user.createdAt
+        name: user.name
       }
     });
 
@@ -618,6 +617,313 @@ app.get("/chats/:roomId", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch chat messages"
+    });
+  }
+});
+
+// Challenge API endpoints
+
+// Get all challenges with optional filters
+app.get("/api/challenges", async (req, res) => {
+  try {
+    const { category, difficulty, type } = req.query;
+    
+    const where: any = {
+      isActive: true,
+    };
+
+    if (category) where.categoryId = category;
+    if (difficulty) where.difficulty = difficulty;
+    if (type) where.type = type;
+
+    const challenges = await prismaClient.challenge.findMany({
+      where,
+      include: {
+        category: true,
+        _count: {
+          select: {
+            submissions: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    res.json(challenges);
+  } catch (error) {
+    console.error("Challenges fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch challenges",
+    });
+  }
+});
+
+// Get current challenge (daily/weekly)
+app.get("/api/challenges/current", async (req, res) => {
+  try {
+    const now = new Date();
+    
+    const currentChallenge = await prismaClient.challenge.findFirst({
+      where: {
+        isActive: true,
+        startDate: {
+          lte: now,
+        },
+        endDate: {
+          gte: now,
+        },
+      },
+      include: {
+        category: true,
+        _count: {
+          select: {
+            submissions: true,
+          },
+        },
+      },
+      orderBy: {
+        endDate: 'asc', // Get the one ending soonest
+      },
+    });
+
+    if (!currentChallenge) {
+      return res.status(404).json({
+        success: false,
+        message: "No active challenge found",
+      });
+    }
+
+    res.json(currentChallenge);
+  } catch (error) {
+    console.error("Current challenge fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch current challenge",
+    });
+  }
+});
+
+// Get challenge by ID
+app.get("/api/challenges/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const challenge = await prismaClient.challenge.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        submissions: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                photo: true,
+              },
+            },
+          },
+          orderBy: {
+            submittedAt: 'desc',
+          },
+        },
+        _count: {
+          select: {
+            submissions: true,
+          },
+        },
+      },
+    });
+
+    if (!challenge) {
+      return res.status(404).json({
+        success: false,
+        message: "Challenge not found",
+      });
+    }
+
+    res.json(challenge);
+  } catch (error) {
+    console.error("Challenge fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch challenge",
+    });
+  }
+});
+
+// Submit a challenge
+app.post("/api/challenges/submit", async (req, res) => {
+  try {
+    const { challengeId, userId, imageUrl, canvasData, title, description, isPublic } = req.body;
+    
+    if (!challengeId || !userId || !imageUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "Challenge ID, user ID, and image URL are required",
+      });
+    }
+
+    // Check if challenge exists and is active
+    const challenge = await prismaClient.challenge.findUnique({
+      where: { id: challengeId },
+    });
+
+    if (!challenge) {
+      return res.status(404).json({
+        success: false,
+        message: "Challenge not found",
+      });
+    }
+
+    if (!challenge.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Challenge is not active",
+      });
+    }
+
+    // Check if user has already submitted to this challenge
+    const existingSubmission = await prismaClient.challengeSubmission.findFirst({
+      where: {
+        challengeId,
+        userId,
+      },
+    });
+
+    if (existingSubmission) {
+      return res.status(409).json({
+        success: false,
+        message: "You have already submitted to this challenge",
+      });
+    }
+
+    const submission = await prismaClient.challengeSubmission.create({
+      data: {
+        challengeId,
+        userId,
+        imageUrl,
+        canvasData,
+        title,
+        description,
+        isPublic: isPublic !== false, // Default to true
+      },
+      include: {
+        challenge: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            photo: true,
+          },
+        },
+      },
+    });
+
+    res.status(201).json(submission);
+  } catch (error) {
+    console.error("Challenge submission error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to submit challenge",
+    });
+  }
+});
+
+// Get user submissions
+app.get("/api/challenges/submissions", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID is required",
+      });
+    }
+
+    const submissions = await prismaClient.challengeSubmission.findMany({
+      where: {
+        userId: userId as string,
+        isPublic: true,
+      },
+      include: {
+        challenge: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            photo: true,
+          },
+        },
+      },
+      orderBy: {
+        submittedAt: 'desc',
+      },
+    });
+
+    res.json(submissions);
+  } catch (error) {
+    console.error("Submissions fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch submissions",
+    });
+  }
+});
+
+// Like a submission
+app.post("/api/challenges/submissions/:id/like", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const submission = await prismaClient.challengeSubmission.findUnique({
+      where: { id },
+    });
+
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: "Submission not found",
+      });
+    }
+
+    const updatedSubmission = await prismaClient.challengeSubmission.update({
+      where: { id },
+      data: {
+        likes: {
+          increment: 1,
+        },
+      },
+    });
+
+    res.json(updatedSubmission);
+  } catch (error) {
+    console.error("Like submission error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to like submission",
+    });
+  }
+});
+
+// Get challenge categories
+app.get("/api/challenges/categories", async (req, res) => {
+  try {
+    const categories = await prismaClient.challengeCategory.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    res.json(categories);
+  } catch (error) {
+    console.error("Categories fetch error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch categories",
     });
   }
 });

@@ -40,29 +40,65 @@ export function Header({
     const fetchRoomInfo = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem("authToken");
         
-        // Try to get room info by ID
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002'}/room/id/${roomId}`, {
+        // Only try to fetch room info if we have a valid roomId
+        if (!roomId || roomId === 'undefined' || roomId === 'null') {
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined') {
+          setIsLoading(false);
+          return;
+        }
+
+        const token = localStorage.getItem("authToken");
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
+        
+        // Validate backend URL
+        if (!backendUrl || backendUrl === 'undefined') {
+          console.warn('Invalid backend URL, skipping room info fetch');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Check if axios is available
+        if (!axios) {
+          console.warn('Axios not available, skipping room info fetch');
+          setIsLoading(false);
+          return;
+        }
+
+        // First check if the backend is available
+        try {
+          await axios.get(`${backendUrl}/health`, { timeout: 3000 });
+        } catch (healthError) {
+          console.log("Backend not available, skipping room info fetch");
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await axios.get(`${backendUrl}/room/id/${roomId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          timeout: 5000, // 5 second timeout
         });
 
         if (response.data.success) {
           setRoomInfo(response.data.room);
         }
-      } catch (error) {
-        console.error("Failed to fetch room info:", error);
+      } catch (error: any) {
+        console.error("Failed to fetch room info:", error?.message || error);
         // If room info fetch fails, we'll just show the room ID
+        // Don't throw the error, just log it
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (roomId) {
-      fetchRoomInfo();
-    }
+    fetchRoomInfo();
   }, [roomId]);
 
   const getBackendUrl = () => {
@@ -92,7 +128,9 @@ export function Header({
               )}
             </div>
           ) : (
-            <span className="font-mono bg-gray-100 px-2 py-1 rounded">{roomId}</span>
+            <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+              {roomId && roomId !== 'undefined' && roomId !== 'null' ? roomId : 'No Room'}
+            </span>
           )}
         </div>
       </div>

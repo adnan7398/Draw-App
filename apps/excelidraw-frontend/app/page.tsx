@@ -37,11 +37,18 @@ function App() {
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               ExcileDraw is a virtual whiteboard that lets you easily sketch diagrams that have a hand-drawn feel to them.
             </p>
-            <button  onClick = {()=>{
-              Router.push("/signup");
-            }} className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
-              Start Drawing...
-            </button>
+            <div className="flex space-x-4">
+              <button onClick={() => {
+                Router.push("/signup");
+              }} className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-blue-700 transition-colors">
+                Start Drawing...
+              </button>
+              <button onClick={() => {
+                Router.push("/challenges");
+              }} className="bg-purple-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-purple-700 transition-colors">
+                View Challenges
+              </button>
+            </div>
           </div>
 
           {/* Feature Preview */}

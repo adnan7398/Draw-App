@@ -1723,6 +1723,9 @@ export class Game {
     this.startX = x;
     this.startY = y;
 
+    // Send cursor update when mouse is pressed
+    this.sendCursorUpdate(x, y, true);
+
     if (e.button === 0) { // Left click
       const worldPos = this.screenToWorld(x, y);
 
@@ -1859,6 +1862,12 @@ export class Game {
 
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
+
+    // Send cursor update when mouse is released
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    this.sendCursorUpdate(x, y, false);
 
     if (e.button === 0) { // Left click
       // Finish resizing
@@ -1999,6 +2008,9 @@ export class Game {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+
+    // Send cursor update to other users
+    this.sendCursorUpdate(x, y, this.clicked);
 
     // Handle resizing
     if (this.isResizing && this.selectedShape && this.resizingHandle) {
@@ -2572,12 +2584,12 @@ export class Game {
       lastUpdate: Date.now(),
       isDrawing
     });
-    this.needsRedraw = true;
+    this.requestRedraw();
   }
 
   removeRemoteCursor(userId: string) {
     this.remoteCursors.delete(userId);
-    this.needsRedraw = true;
+    this.requestRedraw();
   }
 
   private sendCursorUpdate(x: number, y: number, isDrawing: boolean = false) {
@@ -2618,17 +2630,17 @@ export class Game {
       
       // Draw cursor dot
       this.ctx.save();
-      this.ctx.globalAlpha = 0.8;
+      this.ctx.globalAlpha = 0.9;
       
       // Cursor background
       this.ctx.fillStyle = cursor.color;
       this.ctx.beginPath();
-      this.ctx.arc(screenPos.x, screenPos.y, 6, 0, 2 * Math.PI);
+      this.ctx.arc(screenPos.x, screenPos.y, 8, 0, 2 * Math.PI);
       this.ctx.fill();
       
       // Cursor border
       this.ctx.strokeStyle = '#ffffff';
-      this.ctx.lineWidth = 2;
+      this.ctx.lineWidth = 3;
       this.ctx.stroke();
       
       // Drawing indicator

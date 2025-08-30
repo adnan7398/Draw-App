@@ -147,3 +147,71 @@ export interface StylingState {
   textColor: string;
   designColor: string;
 }
+
+// Drawing Challenges types
+export interface ChallengeCategory {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  prompt: string;
+  categoryId: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  type: 'daily' | 'weekly' | 'monthly';
+  startDate: Date;
+  endDate: Date;
+  isActive: boolean;
+  imageUrl?: string;
+  tags: string[];
+  category: ChallengeCategory;
+  createdAt: Date;
+  updatedAt: Date;
+  _count?: {
+    submissions: number;
+  };
+}
+
+export interface ChallengeSubmission {
+  id: string;
+  challengeId: string;
+  userId: string;
+  title?: string;
+  description?: string;
+  imageUrl: string;
+  canvasData?: string;
+  likes: number;
+  isPublic: boolean;
+  submittedAt: Date;
+  challenge: Challenge;
+  user: {
+    id: string;
+    name: string;
+    photo?: string;
+  };
+}
+
+export interface ChallengeState {
+  challenges: Challenge[];
+  currentChallenge: Challenge | null;
+  userSubmissions: ChallengeSubmission[];
+  isLoading: boolean;
+  error: string | null;
+  selectedCategory: string | null;
+  selectedDifficulty: string | null;
+  showChallengeModal: boolean;
+  showSubmissionModal: boolean;
+  submissionForm: {
+    title: string;
+    description: string;
+    isPublic: boolean;
+  };
+}
