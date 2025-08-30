@@ -99,12 +99,25 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
             const payload = JSON.parse(atob(token.split('.')[1]));
             const currentUserInfo: ConnectedUser = {
               userId: payload.userId,
-              userName: payload.name || payload.email || `User ${payload.userId.slice(0, 8)}`,
+              userName: payload.name || `User ${payload.userId.slice(0, 8)}`,
               lastActivity: Date.now()
             };
             setCurrentUser(currentUserInfo);
+            
+            // Set user ID in game for cursor tracking
+            if (game) {
+              game.setCurrentUserId(payload.userId);
+            }
+            
+            // Send user activity to indicate presence
+            socket.send(JSON.stringify({
+              type: "user_activity",
+              roomId: roomId,
+              activity: "joined",
+              userName: currentUserInfo.userName
+            }));
           } catch (error) {
-            console.error("Error parsing user token:", error);
+            console.error('Error parsing auth token:', error);
           }
         }
         

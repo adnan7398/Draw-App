@@ -171,6 +171,12 @@ export class Game {
 
   socket: WebSocket;
 
+  // Real-time cursor state
+  private currentUserId!: string;
+  private remoteCursors: Map<string, { x: number; y: number; username: string; color: string; lastUpdate: number; isDrawing: boolean }> = new Map();
+  private lastCursorUpdate: number = 0;
+  private cursorUpdateThrottle: number = 100; // Throttle cursor updates to 10fps
+
   constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
@@ -837,6 +843,12 @@ export class Game {
             this.existingShapes = this.existingShapes.filter(s => s.id !== shapeId);
             this.clearCanvas();
           }
+        } else if (message.type === "cursor_update") {
+          const { userId, userName, x, y, color, isDrawing } = message;
+          this.updateRemoteCursor(userId, x, y, userName, color, isDrawing);
+        } else if (message.type === "participant_count_update") {
+          // Handle participant count updates if needed
+          console.log("Participant count updated:", message.count);
         }
       } catch (error) {
         console.error("Error processing WebSocket message:", error);
@@ -1234,12 +1246,33 @@ export class Game {
     if (this.isDrawingPath) {
       this.isDrawingPath = false;
       if (this.currentPathPoints.length > 1) {
-        const shape: Shape = {
-          id: this.generateShapeId(),
-          type: "path",
-          points: [...this.currentPathPoints]
-        };
-        console.log('Finished drawing path with', this.currentPathPoints.length, 'points');
+        // Try to recognize the shape
+        const recognizedShape = this.analyzeShape(this.currentPathPoints);
+        
+        let shape: Shape;
+        
+        if (recognizedShape && recognizedShape.confidence > 0.6) {
+          // Create the recognized geometric shape
+          shape = {
+            id: this.generateShapeId(),
+            type: recognizedShape.type as any,
+            ...recognizedShape.shape,
+            style: { ...this.currentStyle }
+          };
+          
+          console.log(`Shape recognized as ${recognizedShape.type} with confidence ${recognizedShape.confidence}`);
+          this.showShapeRecognitionNotification(recognizedShape.type, recognizedShape.confidence);
+        } else {
+          // Fall back to path if no shape is recognized
+          shape = {
+            id: this.generateShapeId(),
+            type: "path",
+            points: [...this.currentPathPoints],
+            style: { ...this.currentStyle }
+          };
+          console.log('No shape recognized, using path');
+        }
+        
         this.historyStack.push([...this.existingShapes]);
         this.existingShapes.push(shape);
         this.clearCanvas();
@@ -1675,6 +1708,9 @@ export class Game {
       this.ctx.fillText(`Clipboard: ${this.clipboardShapes.length} shape(s)`, 20, 30);
       this.ctx.fillText("Ctrl+V to paste", 20, 50);
     }
+
+    // Render remote cursors
+    this.renderRemoteCursors();
   }
 
   // Note: touchStartHandler, touchMoveHandler, and touchEndHandler are already defined above - removing duplicates
@@ -1847,12 +1883,33 @@ export class Game {
       if (this.isDrawingPath) {
         this.isDrawingPath = false;
         if (this.currentPathPoints.length > 1) {
-          const shape: Shape = {
-            id: this.generateShapeId(),
-            type: "path",
-            points: [...this.currentPathPoints],
-            style: { ...this.currentStyle }
-          };
+          // Try to recognize the shape
+          const recognizedShape = this.analyzeShape(this.currentPathPoints);
+          
+          let shape: Shape;
+          
+          if (recognizedShape && recognizedShape.confidence > 0.6) {
+            // Create the recognized geometric shape
+            shape = {
+              id: this.generateShapeId(),
+              type: recognizedShape.type as any,
+              ...recognizedShape.shape,
+              style: { ...this.currentStyle }
+            };
+            
+            console.log(`Shape recognized as ${recognizedShape.type} with confidence ${recognizedShape.confidence}`);
+            this.showShapeRecognitionNotification(recognizedShape.type, recognizedShape.confidence);
+          } else {
+            // Fall back to path if no shape is recognized
+            shape = {
+              id: this.generateShapeId(),
+              type: "path",
+              points: [...this.currentPathPoints],
+              style: { ...this.currentStyle }
+            };
+            console.log('No shape recognized, using path');
+          }
+          
           this.historyStack.push([...this.existingShapes]);
           this.existingShapes.push(shape);
           this.clearCanvas();
@@ -2212,5 +2269,402 @@ export class Game {
     }));
     
     this.clearCanvas();
+  }
+
+  // Shape recognition methods
+  private analyzeShape(points: { x: number; y: number }[]): { type: string; shape: any; confidence: number } | null {
+    if (points.length < 3) return null;
+
+    // Calculate bounding box
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    // Calculate path length and area
+    const pathLength = this.calculatePathLength(points);
+    const area = this.calculatePathArea(points);
+
+    // Analyze shape characteristics
+    const aspectRatio = width / height;
+    const circularity = this.calculateCircularity(points, area);
+    const rectangularity = this.calculateRectangularity(points, width, height, area);
+    const linearity = this.calculateLinearity(points);
+
+    console.log('Shape analysis:', {
+      circularity,
+      rectangularity,
+      linearity,
+      aspectRatio,
+      points: points.length
+    });
+
+    // Determine shape type based on characteristics
+    if (linearity > 0.85) {
+      // High linearity suggests a line
+      const startPoint = points[0];
+      const endPoint = points[points.length - 1];
+      return {
+        type: "line",
+        shape: {
+          startX: startPoint.x,
+          startY: startPoint.y,
+          endX: endPoint.x,
+          endY: endPoint.y
+        },
+        confidence: linearity
+      };
+    } else if (circularity > 0.5) { // Lowered threshold from 0.7 to 0.5
+      // High circularity suggests a circle
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      
+      // Calculate average radius from all points to center
+      let totalRadius = 0;
+      for (const point of points) {
+        const distance = Math.sqrt(Math.pow(point.x - centerX, 2) + Math.pow(point.y - centerY, 2));
+        totalRadius += distance;
+      }
+      const radius = totalRadius / points.length;
+      
+      return {
+        type: "circle",
+        shape: {
+          centerX,
+          centerY,
+          radius
+        },
+        confidence: circularity
+      };
+    } else if (rectangularity > 0.6) {
+      // High rectangularity suggests a rectangle
+      return {
+        type: "rect",
+        shape: {
+          x: minX,
+          y: minY,
+          width,
+          height
+        },
+        confidence: rectangularity
+      };
+    }
+
+    return null;
+  }
+
+  private calculatePathLength(points: { x: number; y: number }[]): number {
+    let length = 0;
+    for (let i = 1; i < points.length; i++) {
+      const dx = points[i].x - points[i - 1].x;
+      const dy = points[i].y - points[i - 1].y;
+      length += Math.sqrt(dx * dx + dy * dy);
+    }
+    return length;
+  }
+
+  private calculatePathArea(points: { x: number; y: number }[]): number {
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      area += points[i].x * points[j].y;
+      area -= points[j].x * points[i].y;
+    }
+    return Math.abs(area) / 2;
+  }
+
+  private calculateCircularity(points: { x: number; y: number }[], area: number): number {
+    if (area === 0) return 0;
+    
+    const minX = Math.min(...points.map(p => p.x));
+    const maxX = Math.max(...points.map(p => p.x));
+    const minY = Math.min(...points.map(p => p.y));
+    const maxY = Math.max(...points.map(p => p.y));
+    const width = maxX - minX;
+    const height = maxY - minY;
+    
+    // Calculate center point
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    
+    const perimeter = this.calculatePathLength(points);
+    const idealRadius = Math.max(width, height) / 2;
+    const idealPerimeter = 2 * Math.PI * idealRadius;
+    
+    // Compare actual perimeter to ideal circle perimeter
+    const perimeterRatio = Math.min(perimeter, idealPerimeter) / Math.max(perimeter, idealPerimeter);
+    
+    // Compare actual area to ideal circle area
+    const idealArea = Math.PI * idealRadius * idealRadius;
+    const areaRatio = Math.min(area, idealArea) / Math.max(area, idealArea);
+    
+    // Calculate distance from center consistency
+    let totalDistance = 0;
+    let distanceVariance = 0;
+    const distances: number[] = [];
+    
+    for (const point of points) {
+      const distance = Math.sqrt(Math.pow(point.x - centerX, 2) + Math.pow(point.y - centerY, 2));
+      distances.push(distance);
+      totalDistance += distance;
+    }
+    
+    const avgDistance = totalDistance / points.length;
+    
+    // Calculate variance in distances from center
+    for (const distance of distances) {
+      distanceVariance += Math.pow(distance - avgDistance, 2);
+    }
+    distanceVariance /= points.length;
+    
+    // Normalize variance (lower is better for circles)
+    const distanceConsistency = Math.max(0, 1 - (distanceVariance / (avgDistance * avgDistance)));
+    
+    // Check if the shape is roughly closed (start and end points are close)
+    const startPoint = points[0];
+    const endPoint = points[points.length - 1];
+    const startEndDistance = Math.sqrt(
+      Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
+    );
+    const closureRatio = Math.max(0, 1 - (startEndDistance / perimeter));
+    
+    // Combine all factors for final circularity score
+    const circularity = (
+      perimeterRatio * 0.3 + 
+      areaRatio * 0.3 + 
+      distanceConsistency * 0.3 + 
+      closureRatio * 0.1
+    );
+    
+    console.log('Circle analysis:', {
+      perimeterRatio,
+      areaRatio,
+      distanceConsistency,
+      closureRatio,
+      finalCircularity: circularity
+    });
+    
+    return circularity;
+  }
+
+  private calculateRectangularity(points: { x: number; y: number }[], width: number, height: number, area: number): number {
+    if (area === 0) return 0;
+    
+    const idealArea = width * height;
+    const areaRatio = Math.min(area, idealArea) / Math.max(area, idealArea);
+    
+    // Check if points form roughly rectangular shape
+    const corners = this.findCorners(points);
+    const cornerScore = Math.min(corners.length, 4) / 4;
+    
+    return (areaRatio + cornerScore) / 2;
+  }
+
+  private calculateLinearity(points: { x: number; y: number }[]): number {
+    if (points.length < 2) return 0;
+    
+    const startPoint = points[0];
+    const endPoint = points[points.length - 1];
+    const idealDistance = Math.sqrt(
+      Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
+    );
+    
+    const actualDistance = this.calculatePathLength(points);
+    
+    if (actualDistance === 0) return 0;
+    
+    return Math.min(idealDistance, actualDistance) / Math.max(idealDistance, actualDistance);
+  }
+
+  private findCorners(points: { x: number; y: number }[]): { x: number; y: number }[] {
+    const corners: { x: number; y: number }[] = [];
+    const threshold = 0.3; // Threshold for corner detection
+    
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const next = points[i + 1];
+      
+      const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
+      const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
+      const angleDiff = Math.abs(angle1 - angle2);
+      
+      if (angleDiff > threshold) {
+        corners.push(curr);
+      }
+    }
+    
+    return corners;
+  }
+
+  private showShapeRecognitionNotification(shapeType: string, confidence: number) {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+    
+    const icon = document.createElement('span');
+    icon.innerHTML = this.getShapeIcon(shapeType);
+    icon.style.fontSize = '16px';
+    
+    const text = document.createElement('span');
+    text.textContent = `Recognized as ${shapeType} (${Math.round(confidence * 100)}%)`;
+    
+    notification.appendChild(icon);
+    notification.appendChild(text);
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0)';
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
+  }
+  
+  private getShapeIcon(shapeType: string): string {
+    switch (shapeType) {
+      case 'circle': return '⭕';
+      case 'rect': return '⬜';
+      case 'line': return '➖';
+      default: return '✏️';
+    }
+  }
+
+  // Real-time cursor methods
+  setCurrentUserId(userId: string) {
+    this.currentUserId = userId;
+  }
+
+  updateRemoteCursor(userId: string, x: number, y: number, username: string, color: string, isDrawing: boolean = false) {
+    this.remoteCursors.set(userId, {
+      x,
+      y,
+      username,
+      color,
+      lastUpdate: Date.now(),
+      isDrawing
+    });
+    this.needsRedraw = true;
+  }
+
+  removeRemoteCursor(userId: string) {
+    this.remoteCursors.delete(userId);
+    this.needsRedraw = true;
+  }
+
+  private sendCursorUpdate(x: number, y: number, isDrawing: boolean = false) {
+    const now = Date.now();
+    if (now - this.lastCursorUpdate < this.cursorUpdateThrottle) {
+      return;
+    }
+    
+    this.lastCursorUpdate = now;
+    
+    this.socket.send(JSON.stringify({
+      type: "cursor_update",
+      userId: this.currentUserId,
+      x: this.screenToWorld(x, y).x,
+      y: this.screenToWorld(x, y).y,
+      isDrawing,
+      roomId: this.roomId
+    }));
+  }
+
+  private renderRemoteCursors() {
+    const now = Date.now();
+    const cursorTimeout = 5000; // Remove cursors after 5 seconds of inactivity
+    
+    this.remoteCursors.forEach((cursor, userId) => {
+      // Remove stale cursors
+      if (now - cursor.lastUpdate > cursorTimeout) {
+        this.remoteCursors.delete(userId);
+        return;
+      }
+      
+      // Don't render our own cursor
+      if (userId === this.currentUserId) {
+        return;
+      }
+      
+      const screenPos = this.worldToScreen(cursor.x, cursor.y);
+      
+      // Draw cursor dot
+      this.ctx.save();
+      this.ctx.globalAlpha = 0.8;
+      
+      // Cursor background
+      this.ctx.fillStyle = cursor.color;
+      this.ctx.beginPath();
+      this.ctx.arc(screenPos.x, screenPos.y, 6, 0, 2 * Math.PI);
+      this.ctx.fill();
+      
+      // Cursor border
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 2;
+      this.ctx.stroke();
+      
+      // Drawing indicator
+      if (cursor.isDrawing) {
+        this.ctx.fillStyle = '#ff4444';
+        this.ctx.beginPath();
+        this.ctx.arc(screenPos.x, screenPos.y, 3, 0, 2 * Math.PI);
+        this.ctx.fill();
+      }
+      
+      // Username label
+      if (cursor.username) {
+        this.ctx.fillStyle = cursor.color;
+        this.ctx.font = '12px Inter, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(cursor.username, screenPos.x, screenPos.y - 15);
+        
+        // Label background
+        const textMetrics = this.ctx.measureText(cursor.username);
+        const labelWidth = textMetrics.width + 8;
+        const labelHeight = 16;
+        
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(
+          screenPos.x - labelWidth / 2,
+          screenPos.y - 15 - labelHeight,
+          labelWidth,
+          labelHeight
+        );
+        
+        // Label text
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillText(cursor.username, screenPos.x, screenPos.y - 15);
+      }
+      
+      this.ctx.restore();
+    });
   }
 }

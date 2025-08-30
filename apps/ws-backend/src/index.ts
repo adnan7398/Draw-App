@@ -176,6 +176,51 @@ wss.on("connection",function connection(ws,request){
                     }
                 });
             }
+
+            if (parsedData.type === "cursor_update") {
+                const { roomId, x, y, isDrawing } = parsedData;
+                
+                // Update user's drawing status
+                user.isDrawing = isDrawing;
+                user.lastActivity = Date.now();
+                
+                // Try to get user name from database if not already set
+                if (!user.userName || user.userName.startsWith('User ')) {
+                    try {
+                        const dbUser = await prismaClient.user.findUnique({
+                            where: { id: user.userId },
+                            select: { name: true }
+                        });
+                        if (dbUser?.name) {
+                            user.userName = dbUser.name;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching user name from database:', error);
+                    }
+                }
+                
+                // Generate a unique color for this user based on their ID
+                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+                const colorIndex = parseInt(user.userId.slice(-1), 16) % colors.length;
+                const userColor = colors[colorIndex];
+                
+                // Broadcast cursor update to all other users in the room
+                users.forEach(u => {
+                    if (u.rooms.includes(roomId) && u.ws.readyState === WebSocket.OPEN && u.userId !== user.userId) {
+                        u.ws.send(JSON.stringify({
+                            type: "cursor_update",
+                            roomId: roomId,
+                            userId: user.userId,
+                            userName: user.userName || `User ${user.userId.slice(0, 8)}`,
+                            x: x,
+                            y: y,
+                            color: userColor,
+                            isDrawing: isDrawing,
+                            timestamp: Date.now()
+                        }));
+                    }
+                });
+            }
           
             if (parsedData.type === "leave_room") {
                 console.log("User leaving room:", parsedData.roomId);
