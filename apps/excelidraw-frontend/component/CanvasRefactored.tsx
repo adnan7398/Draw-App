@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCanvasState } from "@/hooks/useCanvasState";
 import { useStylingState } from "@/hooks/useStylingState";
 import { useAITools } from "@/hooks/useAITools";
@@ -21,6 +22,7 @@ export function CanvasRefactored({
   socket: WebSocket;
   roomId: string;
 }) {
+  const router = useRouter();
   // Use custom hooks for state management
   const {
     canvasRef,
@@ -80,6 +82,19 @@ export function CanvasRefactored({
     }
   };
 
+  // Exit room: close socket gracefully and navigate back to rooms page
+  const handleExitRoom = () => {
+    try {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close(1000, "User left room");
+      }
+    } catch (e) {
+      console.error("Error closing socket on exit:", e);
+    } finally {
+      router.push("/room");
+    }
+  };
+
   // Handle AI prompt changes
   const handleAiPromptChange = (prompt: string) => {
     setAiToolsState(prev => ({ ...prev, aiPrompt: prompt }));
@@ -114,6 +129,7 @@ export function CanvasRefactored({
         onToggleAIPanel={() => setAiToolsState(prev => ({ ...prev, showAIPanel: !prev.showAIPanel }))}
         onToggleQuickTips={() => setShowQuickTips(!canvasState.showQuickTips)}
         onToggleConnectedUsers={() => setShowConnectedUsers(!showConnectedUsers)}
+        onExitRoom={handleExitRoom}
       />
 
       {/* Main Canvas Area */}

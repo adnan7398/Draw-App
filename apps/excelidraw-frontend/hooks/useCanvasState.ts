@@ -17,6 +17,7 @@ export function useCanvasState(roomId: string, socket: WebSocket) {
     isConnected: false,
     participantCount: 1,
     showWelcome: true,
+    showQuickTips: false,
     canvasSize: { width: 0, height: 0 },
     isPanning: false
   });

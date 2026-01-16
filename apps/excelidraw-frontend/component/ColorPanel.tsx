@@ -35,8 +35,22 @@ export function ColorPanel({
             <Palette size={16} />
           </button>
           <div className="flex items-center space-x-1">
-            <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: stylingState.strokeColor }}></div>
-            <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: stylingState.fillColor }}></div>
+            <div 
+              className="w-4 h-4 rounded border border-gray-300" 
+              style={{ backgroundColor: stylingState.strokeColor }}
+              title="Stroke"
+            ></div>
+            <div 
+              className="w-4 h-4 rounded border border-gray-300 relative" 
+              style={{ backgroundColor: stylingState.fillColor === "transparent" ? "white" : stylingState.fillColor }}
+              title="Fill"
+            >
+              {stylingState.fillColor === "transparent" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-3 h-0.5 bg-red-500 rotate-45"></div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         
@@ -109,18 +123,31 @@ export function ColorPanel({
               {stylingState.selectedColorType} Color
             </label>
             <div className="flex items-center space-x-2">
-              <input
-                type="color"
-                value={getCurrentColor()}
-                onChange={(e) => onColorChange(e.target.value)}
-                className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
-              />
+              {stylingState.selectedColorType === 'fill' && stylingState.fillColor === "transparent" ? (
+                <div className="w-10 h-10 rounded border-2 border-gray-400 border-dashed flex items-center justify-center bg-white">
+                  <span className="text-xs text-gray-400">/</span>
+                </div>
+              ) : (
+                <input
+                  type="color"
+                  value={getCurrentColor() === "transparent" ? "#ffffff" : getCurrentColor()}
+                  onChange={(e) => onColorChange(e.target.value)}
+                  className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                />
+              )}
               <input
                 type="text"
-                value={getCurrentColor()}
-                onChange={(e) => onColorChange(e.target.value)}
+                value={getCurrentColor() === "transparent" ? "transparent" : getCurrentColor()}
+                onChange={(e) => {
+                  const value = e.target.value.toLowerCase();
+                  if (value === "transparent" || value === "") {
+                    onColorChange("transparent");
+                  } else if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                    onColorChange(value);
+                  }
+                }}
                 className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-gray-800 text-sm"
-                placeholder="#000000"
+                placeholder="#000000 or transparent"
               />
             </div>
           </div>
@@ -142,6 +169,22 @@ export function ColorPanel({
               ))}
             </div>
           </div>
+
+          {/* No Fill Toggle - Only show for fill color type */}
+          {stylingState.selectedColorType === 'fill' && (
+            <div className="mb-4">
+              <button
+                onClick={() => onColorChange("transparent")}
+                className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  stylingState.fillColor === "transparent"
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {stylingState.fillColor === "transparent" ? "✓ No Fill" : "No Fill"}
+              </button>
+            </div>
+          )}
 
           {/* Stroke Width */}
           <div className="mb-4">

@@ -20,7 +20,6 @@ function Home() {
   const [roomId, setRoomId] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomPassword, setRoomPassword] = useState('');
-  const [joinPassword, setJoinPassword] = useState('');
   const [myRooms, setMyRooms] = useState<Room[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -105,8 +104,10 @@ function Home() {
         fetchMyRooms(); // Refresh the rooms list
         Router.push(`${getExileUrl()}/${roomId}`);
       }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Something went wrong";
+    } catch (error: unknown) {
+      const errorMessage = (error as { response?: { data?: { message?: string } }; message?: string }).response?.data?.message || 
+                          (error as { message?: string }).message || 
+                          "Something went wrong";
       alert(`Error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
@@ -166,7 +167,7 @@ function Home() {
 
         Router.push(`${getExileUrl()}/${room.id}`);
       }
-    } catch (error: any) {
+    } catch {
       // If room not found by ID, try by code
       try {
         const response = await axios.get(`${getBackendUrl()}/room/code/${roomId}`, {
@@ -206,7 +207,7 @@ function Home() {
 
           Router.push(`${getExileUrl()}/${room.id}`);
         }
-      } catch (codeError: any) {
+      } catch {
         // If room not found by code, try by slug
         try {
           const response = await axios.get(`${getBackendUrl()}/room/${roomId}`, {
@@ -246,8 +247,8 @@ function Home() {
 
             Router.push(`${getExileUrl()}/${room.id}`);
           }
-        } catch (slugError: any) {
-          const errorMessage = slugError.response?.data?.message || "Room not found";
+        } catch (slugError: unknown) {
+          const errorMessage = (slugError as { response?: { data?: { message?: string } } }).response?.data?.message || "Room not found";
           alert(`Error: ${errorMessage}`);
         }
       }

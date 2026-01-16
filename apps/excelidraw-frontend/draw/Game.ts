@@ -1,7 +1,6 @@
 import { Tool } from "@/component/types";
 import { getExistingShapes } from "./http";
 
-// Styling types
 type GradientType = "linear" | "radial" | "none";
 type StrokePattern = "solid" | "dashed" | "dotted" | "dash-dot";
 
@@ -9,15 +8,15 @@ interface Gradient {
   type: GradientType;
   colors: string[];
   stops: number[];
-  angle?: number; // For linear gradients
-  centerX?: number; // For radial gradients
-  centerY?: number; // For radial gradients
+  angle?: number;
+  centerX?: number;
+  centerY?: number;
 }
 
 interface StrokeStyle {
   type: StrokePattern;
   width: number;
-  dashArray?: number[]; // For custom patterns
+  dashArray?: number[];
 }
 
 interface ShapeStyle {
@@ -35,6 +34,24 @@ type Shape =
   | {
       id: string;
       type: "rect";
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      style?: ShapeStyle;
+    }
+  | {
+      id: string;
+      type: "ellipse";
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      style?: ShapeStyle;
+    }
+  | {
+      id: string;
+      type: "triangle";
       x: number;
       y: number;
       width: number;
@@ -99,13 +116,11 @@ export class Game {
   private resizeStartY: number = 0;
   private originalShape: Shape | null = null;
   
-  // Performance optimizations
   private animationFrameId: number | null = null;
   private needsRedraw: boolean = false;
   private lastDrawTime: number = 0;
-  private drawThrottle: number = 16; // ~60fps
+  private drawThrottle: number = 16;
   
-  // Text rendering improvements
   private textFonts: { [key: string]: string } = {
     'default': '16px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
     'heading': '20px Inter, -apple-system, BlinkMacSystemFont, sans-serif',
@@ -114,14 +129,12 @@ export class Game {
     'mono': '14px "Roboto Mono", "SF Mono", Monaco, monospace'
   };
   
-  // Smooth drawing optimizations
   private drawingBuffer: { x: number; y: number }[] = [];
   private smoothingFactor: number = 0.3;
   private lastPoint: { x: number; y: number } | null = null;
   private cursorBlink: boolean = true;
   private cursorBlinkInterval: NodeJS.Timeout | null = null;
   
-  // Infinite scrolling properties
   private isPanning: boolean = false;
   private lastPanX: number = 0;
   private lastPanY: number = 0;
@@ -130,20 +143,20 @@ export class Game {
   private viewportWidth: number = 0;
   private viewportHeight: number = 0;
 
-  // Stable keyboard handlers for add/removeEventListener
+  
   private keyDownHandler!: (e: KeyboardEvent) => void;
   private keyUpHandler!: (e: KeyboardEvent) => void;
 
-  // Freehand drawing state
+  
   private isDrawingPath: boolean = false;
   private currentPathPoints: { x: number; y: number }[] = [];
   private currentTouchX: number = 0;
   private currentTouchY: number = 0;
   
-  // Touch drawing state
+  
   private isDrawingShape: boolean = false;
   
-  // Palm scrolling and clipboard state
+  
   private isPalmScrolling: boolean = false;
   private palmScrollStartX: number = 0;
   private palmScrollStartY: number = 0;
@@ -152,15 +165,15 @@ export class Game {
   private clipboardOffsetY: number = 0;
   private isPasting: boolean = false;
   
-  // Touch handling properties
+  
   private panStartX: number = 0;
   private panStartY: number = 0;
   private panStartOffsetX: number = 0;
   private panStartOffsetY: number = 0;
   
-  // Styling state
+  
   private currentStyle: ShapeStyle = {
-    fillColor: "#E3F2FD",
+    fillColor: "transparent",
     strokeColor: "#1976D2",
     strokeWidth: 2,
     strokeStyle: { type: "solid", width: 2 },
@@ -171,11 +184,11 @@ export class Game {
 
   socket: WebSocket;
 
-  // Real-time cursor state
+  
   private currentUserId!: string;
   private remoteCursors: Map<string, { x: number; y: number; username: string; color: string; lastUpdate: number; isDrawing: boolean }> = new Map();
   private lastCursorUpdate: number = 0;
-  private cursorUpdateThrottle: number = 100; // Throttle cursor updates to 10fps
+  private cursorUpdateThrottle: number = 50; 
 
   constructor(canvas: HTMLCanvasElement, roomId: string, socket: WebSocket) {
     this.canvas = canvas;
@@ -185,7 +198,7 @@ export class Game {
     this.socket = socket;
     this.clicked = false;
     
-    // Enable canvas optimizations for smoother rendering
+    
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
     
@@ -197,7 +210,7 @@ export class Game {
   }
 
   destroy() {
-    // Cancel any pending animation frames
+    
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
     }
@@ -205,41 +218,46 @@ export class Game {
       clearInterval(this.cursorBlinkInterval);
     }
     
-    // Remove mouse events
+    
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
     this.canvas.removeEventListener("wheel", this.wheelHandler);
     this.canvas.removeEventListener("contextmenu", this.contextMenuHandler);
     
-    // Remove touch events
+    
     this.canvas.removeEventListener("touchstart", this.touchStartHandler);
     this.canvas.removeEventListener("touchmove", this.touchMoveHandler);
     this.canvas.removeEventListener("touchend", this.touchEndHandler);
     
-    // Remove keyboard events
+    
     document.removeEventListener("keydown", this.keyDownHandler);
     document.removeEventListener("keyup", this.keyUpHandler);
   }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
   private generateShapeId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
   private getResizeHandles(shape: Shape): { x: number; y: number; width: number; height: number; handle: string }[] {
     const handles: { x: number; y: number; width: number; height: number; handle: string }[] = [];
-    const handleSize = 16; // Larger handle size for easier clicking
+    const handleSize = 16;
     
-    if (shape.type === "rect") {
+    if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
       const screenPos = this.worldToScreen(shape.x, shape.y);
       const screenWidth = shape.width * this.scale;
       const screenHeight = shape.height * this.scale;
       
-      // Corner handles
+      
       handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "nw" });
       handles.push({ x: screenPos.x + screenWidth - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "ne" });
       handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "sw" });
       handles.push({ x: screenPos.x + screenWidth - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "se" });
       
-      // Edge handles
+      
       handles.push({ x: screenPos.x + screenWidth/2 - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "n" });
       handles.push({ x: screenPos.x + screenWidth/2 - handleSize/2, y: screenPos.y + screenHeight - handleSize/2, width: handleSize, height: handleSize, handle: "s" });
       handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y + screenHeight/2 - handleSize/2, width: handleSize, height: handleSize, handle: "w" });
@@ -249,7 +267,7 @@ export class Game {
       const screenPos = this.worldToScreen(shape.centerX, shape.centerY);
       const screenRadius = shape.radius * this.scale;
       
-      // Circle resize handles (8 points around the circle)
+      
       for (let i = 0; i < 8; i++) {
         const angle = (i * Math.PI) / 4;
         const x = screenPos.x + Math.cos(angle) * screenRadius - handleSize/2;
@@ -260,7 +278,7 @@ export class Game {
     } else if (shape.type === "text") {
       const screenPos = this.worldToScreen(shape.x, shape.y);
       
-      // Create a temporary canvas to measure text
+      
       const tempCanvas = document.createElement('canvas');
       const tempCtx = tempCanvas.getContext('2d')!;
       tempCtx.font = `${shape.fontSize * this.scale}px Arial`;
@@ -268,7 +286,7 @@ export class Game {
       const textWidth = metrics.width;
       const textHeight = shape.fontSize * this.scale;
       
-      // Corner handles for text
+      
       handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - textHeight - handleSize/2, width: handleSize, height: handleSize, handle: "nw" });
       handles.push({ x: screenPos.x + textWidth - handleSize/2, y: screenPos.y - textHeight - handleSize/2, width: handleSize, height: handleSize, handle: "ne" });
       handles.push({ x: screenPos.x - handleSize/2, y: screenPos.y - handleSize/2, width: handleSize, height: handleSize, handle: "sw" });
@@ -278,7 +296,7 @@ export class Game {
     return handles;
   }
 
-  // Check if a point is over a resize handle
+  
   private getResizeHandleAtPosition(x: number, y: number): { shape: Shape; handle: string } | null {
     if (!this.selectedShape) return null;
     
@@ -294,13 +312,13 @@ export class Game {
     return null;
   }
 
-  // Resize a shape based on handle and new position
+  
   private resizeShape(shape: Shape, handle: string, newX: number, newY: number) {
     if (!this.originalShape) return;
     
     console.log('Resizing shape:', shape.type, 'handle:', handle, 'newPos:', newX, newY);
     
-    if (shape.type === "rect") {
+    if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
       const originalRect = this.originalShape as any;
       const totalDeltaX = newX - this.resizeStartX;
       const totalDeltaY = newY - this.resizeStartY;
@@ -356,7 +374,7 @@ export class Game {
           break;
       }
       
-      // Ensure minimum size
+      
       shape.width = Math.max(10, shape.width);
       shape.height = Math.max(10, shape.height);
       
@@ -365,13 +383,13 @@ export class Game {
       const totalDeltaX = newX - this.resizeStartX;
       const totalDeltaY = newY - this.resizeStartY;
       
-      // Determine which direction to resize based on handle
+      
       const handleIndex = parseInt(handle.split('-')[1]);
       const angle = (handleIndex * Math.PI) / 4;
       const cosAngle = Math.cos(angle);
       const sinAngle = Math.sin(angle);
       
-      // Calculate new radius based on handle position
+      
       const radiusDelta = (cosAngle * totalDeltaX + sinAngle * totalDeltaY);
       shape.radius = Math.max(5, originalCircle.radius + radiusDelta);
       
@@ -380,15 +398,15 @@ export class Game {
       const totalDeltaX = newX - this.resizeStartX;
       const totalDeltaY = newY - this.resizeStartY;
       
-      // Resize text by changing font size
-      const scaleFactor = 1 + (totalDeltaX + totalDeltaY) / 200; // Adjust sensitivity
+      
+      const scaleFactor = 1 + (totalDeltaX + totalDeltaY) / 200; 
       const newFontSize = Math.max(8, Math.min(72, originalText.fontSize * scaleFactor));
       shape.fontSize = newFontSize;
     }
   }
 
   cleanupShapes() {
-    // Remove any invalid shapes that might have slipped through
+    
     const originalLength = this.existingShapes.length;
     this.existingShapes = this.existingShapes.filter(shape => 
       shape && typeof shape === 'object' && shape.type && (shape as any).id
@@ -403,7 +421,7 @@ export class Game {
     this.selectedTool = tool;
   }
 
-  // Debug method to test resize handles
+  
   debugResizeHandles() {
     if (this.selectedShape) {
       const handles = this.getResizeHandles(this.selectedShape);
@@ -414,7 +432,7 @@ export class Game {
     }
   }
 
-  // Create a test shape for debugging
+  
   createTestShape() {
     const testShape: Shape = {
       id: this.generateShapeId(),
@@ -431,7 +449,7 @@ export class Game {
     console.log('Created test shape:', testShape);
   }
 
-  // Start cursor blinking
+  
   startCursorBlink() {
     if (this.cursorBlinkInterval) {
       clearInterval(this.cursorBlinkInterval);
@@ -440,10 +458,10 @@ export class Game {
     this.cursorBlinkInterval = setInterval(() => {
       this.cursorBlink = !this.cursorBlink;
       this.clearCanvas();
-    }, 500); // Blink every 500ms
+    }, 500); 
   }
 
-  // Stop cursor blinking
+  
   stopCursorBlink() {
     if (this.cursorBlinkInterval) {
       clearInterval(this.cursorBlinkInterval);
@@ -452,7 +470,7 @@ export class Game {
     this.cursorBlink = false;
   }
 
-  // Copy selected shapes to clipboard
+  
   copyShapes() {
     if (this.selectedShape) {
       this.clipboardShapes = [JSON.parse(JSON.stringify(this.selectedShape))];
@@ -460,7 +478,7 @@ export class Game {
     }
   }
 
-  // Cut selected shapes (copy and delete)
+  
   cutShapes() {
     if (this.selectedShape) {
       this.copyShapes();
@@ -471,7 +489,7 @@ export class Game {
     }
   }
 
-  // Paste shapes from clipboard
+  
   pasteShapes(x: number, y: number) {
     if (this.clipboardShapes.length === 0) return;
     
@@ -482,9 +500,9 @@ export class Game {
       const newShape = JSON.parse(JSON.stringify(shape));
       newShape.id = this.generateShapeId();
       
-      // Calculate offset for pasting
+      
       if (pastedShapes.length === 0) {
-        if (shape.type === "rect" || shape.type === "text") {
+        if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle" || shape.type === "text") {
           this.clipboardOffsetX = x - (shape as any).x;
           this.clipboardOffsetY = y - (shape as any).y;
         } else if (shape.type === "circle") {
@@ -499,8 +517,8 @@ export class Game {
         }
       }
       
-      // Apply offset
-      if (shape.type === "rect") {
+      
+      if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
         newShape.x = x - this.clipboardOffsetX;
         newShape.y = y - this.clipboardOffsetY;
       } else if (shape.type === "circle") {
@@ -529,7 +547,7 @@ export class Game {
     this.selectedShape = pastedShapes[0];
     this.clearCanvas();
     
-    // Send pasted shapes to other users
+    
     pastedShapes.forEach(shape => {
       this.socket.send(JSON.stringify({
         type: "draw",
@@ -542,12 +560,12 @@ export class Game {
     this.isPasting = false;
   }
 
-  // Detect palm gesture (3+ fingers)
+  
   private isPalmGesture(touches: TouchList): boolean {
     return touches.length >= 3;
   }
 
-  // Styling methods
+  
   setFillColor(color: string) {
     this.currentStyle.fillColor = color;
   }
@@ -578,12 +596,12 @@ export class Game {
   }
 
   setTextColor(color: string) {
-    // Update text color for new text shapes
+    
     this.currentStyle.textColor = color;
   }
 
   setDesignColor(color: string) {
-    // Update design color for UI elements
+    
     this.currentStyle.designColor = color;
   }
 
@@ -591,7 +609,7 @@ export class Game {
     return { ...this.currentStyle };
   }
 
-  // Layer management methods
+  
   createLayer(name: string): string {
     const layerId = `layer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.layers.push({
@@ -630,7 +648,7 @@ export class Game {
     }));
   }
 
-  // Apply gradient to canvas context
+  
   private applyGradient(ctx: CanvasRenderingContext2D, shape: Shape, gradient: Gradient): CanvasGradient | null {
     if (gradient.type === "linear" && gradient.angle !== undefined) {
       const angle = gradient.angle * Math.PI / 180;
@@ -658,7 +676,7 @@ export class Game {
     return null;
   }
 
-  // Apply stroke style to canvas context
+  
   private applyStrokeStyle(ctx: CanvasRenderingContext2D, strokeStyle: StrokeStyle) {
     ctx.lineWidth = strokeStyle.width;
     
@@ -680,18 +698,18 @@ export class Game {
   async init() {
     try {
       this.existingShapes = await getExistingShapes(this.roomId);
-      // Filter out any invalid shapes that might have been loaded
+      
       this.existingShapes = this.existingShapes.filter(shape => 
         shape && typeof shape === 'object' && shape.type && (shape as any).id
       );
-      this.cleanupShapes(); // Additional cleanup
+      this.cleanupShapes(); 
       this.clearCanvas();
       
-      // Initialize viewport
+      
       this.viewportWidth = this.canvas.width;
       this.viewportHeight = this.canvas.height;
       
-      // Center the viewport initially
+      
       this.offsetX = this.viewportWidth / 2;
       this.offsetY = this.viewportHeight / 2;
       
@@ -700,13 +718,13 @@ export class Game {
       this.existingShapes = [];
     }
     
-    // Set up periodic cleanup
+    
     setInterval(() => {
       this.cleanupShapes();
-    }, 10000); // Clean up every 10 seconds
+    }, 10000); 
   }
 
-  // Convert screen coordinates to world coordinates
+  
   public screenToWorld(screenX: number, screenY: number): { x: number, y: number } {
     return {
       x: (screenX - this.offsetX) / this.scale,
@@ -714,7 +732,7 @@ export class Game {
     };
   }
 
-  // Convert world coordinates to screen coordinates
+  
   private worldToScreen(worldX: number, worldY: number): { x: number, y: number } {
     return {
       x: worldX * this.scale + this.offsetX,
@@ -722,19 +740,19 @@ export class Game {
     };
   }
 
-  // Pan the viewport
+  
   private pan(deltaX: number, deltaY: number) {
     this.offsetX += deltaX;
     this.offsetY += deltaY;
     this.clearCanvas();
   }
 
-  // Zoom the viewport
+  
   private zoom(factor: number, centerX: number, centerY: number) {
     const oldScale = this.scale;
     this.scale = Math.max(this.minScale, Math.min(this.maxScale, this.scale * factor));
     
-    // Adjust offset to zoom towards the center point
+    
     if (this.scale !== oldScale) {
       const scaleRatio = this.scale / oldScale;
       this.offsetX = centerX - (centerX - this.offsetX) * scaleRatio;
@@ -743,18 +761,18 @@ export class Game {
     }
   }
 
-  // Reset view to show all shapes
+  
   private resetView() {
     if (this.existingShapes.length === 0) {
       this.offsetX = this.viewportWidth / 2;
       this.offsetY = this.viewportHeight / 2;
       this.scale = 1;
     } else {
-      // Calculate bounds of all shapes
+      
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       
       this.existingShapes.forEach(shape => {
-        if (shape.type === "rect") {
+        if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
           minX = Math.min(minX, shape.x);
           minY = Math.min(minY, shape.y);
           maxX = Math.max(maxX, shape.x + shape.width);
@@ -779,21 +797,21 @@ export class Game {
         }
       });
       
-      // Add padding
+      
       const padding = 100;
       minX -= padding;
       minY -= padding;
       maxX += padding;
       maxY += padding;
       
-      // Calculate scale to fit everything
+      
       const shapeWidth = maxX - minX;
       const shapeHeight = maxY - minY;
       const scaleX = this.viewportWidth / shapeWidth;
       const scaleY = this.viewportHeight / shapeHeight;
-      this.scale = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 1x
+      this.scale = Math.min(scaleX, scaleY, 1); 
       
-      // Center the view
+      
       this.offsetX = this.viewportWidth / 2 - (minX + shapeWidth / 2) * this.scale;
       this.offsetY = this.viewportHeight / 2 - (minY + shapeHeight / 2) * this.scale;
     }
@@ -810,14 +828,14 @@ export class Game {
           try {
             const parsedData = JSON.parse(message.message);
             if (parsedData.type === "shape_create" && parsedData.shape && parsedData.shape.type && parsedData.shape.id) {
-              // Check if shape already exists to prevent duplicates
+              
               if (!this.existingShapes.find(s => s.id === parsedData.shape.id)) {
                 this.existingShapes.push(parsedData.shape);
                 this.clearCanvas();
               }
             }
           } catch (e) {
-            // Handle non-shape chat messages
+            
           }
         } else if (message.type === "edit_shape") {
           const updatedShape = message.shape;
@@ -831,7 +849,7 @@ export class Game {
         } else if (message.type === "draw") {
           const newShape = message.shape;
           if (newShape && newShape.type && newShape.id) {
-            // Check if shape already exists to prevent duplicates
+            
             if (!this.existingShapes.find(s => s.id === newShape.id)) {
               this.existingShapes.push(newShape);
               this.clearCanvas();
@@ -847,7 +865,7 @@ export class Game {
           const { userId, userName, x, y, color, isDrawing } = message;
           this.updateRemoteCursor(userId, x, y, userName, color, isDrawing);
         } else if (message.type === "participant_count_update") {
-          // Handle participant count updates if needed
+          
           console.log("Participant count updated:", message.count);
         }
       } catch (error) {
@@ -859,7 +877,7 @@ export class Game {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         if (this.historyStack.length > 0) {
           const previousState = this.historyStack.pop()!;
-          // Ensure the previous state is valid
+          
           if (Array.isArray(previousState)) {
             this.existingShapes = previousState.filter(shape => 
               shape && typeof shape === 'object' && shape.type && (shape as any).id
@@ -910,10 +928,26 @@ export class Game {
             this.createTestShape();
           }
           break;
+        case "c":
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            this.copyShapes();
+          }
+          break;
+        case "p":
+          if (!e.ctrlKey && !e.metaKey) {
+            
+            const x = this.canvas.width / 2;
+            const y = this.canvas.height / 2;
+            const worldPos = this.screenToWorld(x, y);
+            this.updateRemoteCursor('test-user', worldPos.x, worldPos.y, 'Test User', '#FF0000', false);
+            console.log('Added test cursor at center of canvas');
+          }
+          break;
         case "h":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            // Dispatch custom event to toggle quick tips
+            
             this.canvas.dispatchEvent(new CustomEvent('toggleQuickTips'));
           }
           break;
@@ -932,7 +966,7 @@ export class Game {
         case "v":
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
-            // Paste at center of viewport
+            
             const centerX = this.viewportWidth / 2;
             const centerY = this.viewportHeight / 2;
             const worldPos = this.screenToWorld(centerX, centerY);
@@ -954,7 +988,7 @@ export class Game {
   }
 
   initTouchHandlers() {
-    // Prevent scrolling on the canvas
+    
     this.canvas.style.touchAction = 'none';
     this.canvas.style.userSelect = 'none';
     this.canvas.style.webkitUserSelect = 'none';
@@ -968,7 +1002,7 @@ export class Game {
     e.preventDefault();
     console.log('Touch start:', e.touches.length, 'touches');
     
-    // Handle palm scrolling (3+ fingers)
+    
     if (this.isPalmGesture(e.touches)) {
       this.isPalmScrolling = true;
       const touch = e.touches[0];
@@ -996,7 +1030,7 @@ export class Game {
       
       const worldPos = this.screenToWorld(x, y);
       
-      // Start freehand path if pencil selected
+      
       if (this.selectedTool === "pencil") {
         console.log('Starting pencil drawing');
         this.isDrawingPath = true;
@@ -1005,7 +1039,7 @@ export class Game {
         return;
       }
       
-      // Handle erase tool
+      
       if (this.selectedTool === "erase") {
         const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
         if (shape) {
@@ -1017,9 +1051,9 @@ export class Game {
         return;
       }
 
-      // Handle text tool
+      
       if (this.selectedTool === "text" as Tool) {
-        // Create a new text shape
+        
         const textShape: Shape = {
           id: this.generateShapeId(),
           type: "text",
@@ -1036,32 +1070,32 @@ export class Game {
         this.selectedShape = textShape;
         this.clearCanvas();
         
-        // Send to other users
+        
         this.socket.send(JSON.stringify({ 
           type: "draw", 
           shape: textShape, 
           roomId: this.roomId 
         }));
         
-        // Emit event for text editing
+        
         this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
           detail: { shapeId: textShape.id, text: "" } 
         }));
         
-        // Start cursor blinking
+        
         this.startCursorBlink();
         
         return;
       }
       
-      // Check for resize handles first
+      
       const resizeHandle = this.getResizeHandleAtPosition(x, y);
       if (resizeHandle) {
         this.isResizing = true;
         this.resizingHandle = resizeHandle.handle;
         this.resizeStartX = worldPos.x;
         this.resizeStartY = worldPos.y;
-        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); // Deep copy
+        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); 
         return;
       }
 
@@ -1073,7 +1107,7 @@ export class Game {
         this.isDragging = true;
         this.isDraggingShape = true;
         
-        if (shape.type === "rect") {
+        if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
           this.dragOffsetX = worldPos.x - shape.x;
           this.dragOffsetY = worldPos.y - shape.y;
         } else if (shape.type === "circle") {
@@ -1089,18 +1123,25 @@ export class Game {
           this.dragOffsetX = worldPos.x - shape.x;
           this.dragOffsetY = worldPos.y - shape.y;
           
-          // If text tool is selected, allow editing
+          
           if (this.selectedTool === "text" as Tool) {
             this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
               detail: { shapeId: shape.id, text: shape.text } 
             }));
           }
         }
-      } else if (this.selectedTool === "rect" || this.selectedTool === "circle" || this.selectedTool === "line" || this.selectedTool === "text") {
-        // For drawing tools, don't start panning - allow drawing
+      } else if (
+        this.selectedTool === "rect" ||
+        this.selectedTool === "ellipse" ||
+        this.selectedTool === "triangle" ||
+        this.selectedTool === "circle" ||
+        this.selectedTool === "line" ||
+        this.selectedTool === "text"
+      ) {
+        
         console.log('Starting drawing with tool:', this.selectedTool);
         this.isDrawingShape = true;
-        // Don't set isPanning = true for drawing tools
+        
       } else {
         console.log('Starting panning');
         this.isPanning = true;
@@ -1111,7 +1152,7 @@ export class Game {
   touchMoveHandler = (e: TouchEvent) => {
     e.preventDefault();
     
-    // Handle palm scrolling
+    
     if (this.isPalmScrolling && this.isPalmGesture(e.touches)) {
       const touch = e.touches[0];
       const rect = this.canvas.getBoundingClientRect();
@@ -1132,13 +1173,13 @@ export class Game {
       const x = touch.clientX - rect.left;
       const y = touch.clientY - rect.top;
       
-      // Handle resizing on touch
+      
       if (this.isResizing && this.selectedShape && this.resizingHandle) {
         const worldPos = this.screenToWorld(x, y);
         this.resizeShape(this.selectedShape, this.resizingHandle, worldPos.x, worldPos.y);
         this.clearCanvas();
         
-        // Send resize update to other users
+        
         this.socket.send(JSON.stringify({
           type: "edit_shape",
           shape: this.selectedShape,
@@ -1149,7 +1190,7 @@ export class Game {
       }
       
       if (this.isDrawingPath) {
-        // Continue drawing the path
+        
         const worldPos = this.screenToWorld(x, y);
         this.currentPathPoints.push({ x: worldPos.x, y: worldPos.y });
         console.log('Drawing path, points:', this.currentPathPoints.length);
@@ -1197,13 +1238,13 @@ export class Game {
         
         this.clearCanvas();
       } else if (this.isDrawingShape && !this.isPanning && !this.isDraggingShape) {
-        // Update the current touch position for shape drawing
+        
         this.currentTouchX = x;
         this.currentTouchY = y;
         
         console.log('Drawing shape preview, tool:', this.selectedTool, 'from', this.startX, this.startY, 'to', x, y);
         
-        // Redraw canvas to show preview of the shape being drawn
+        
         this.clearCanvas();
         this.drawShapePreview();
       }
@@ -1217,7 +1258,7 @@ export class Game {
     this.clicked = false;
     this.isPanning = false;
     
-    // Finish palm scrolling
+    
     if (this.isPalmScrolling) {
       this.isPalmScrolling = false;
       this.canvas.style.cursor = "crosshair";
@@ -1225,12 +1266,12 @@ export class Game {
       return;
     }
     
-    // Finish resizing
+    
     if (this.isResizing) {
       this.isResizing = false;
       this.resizingHandle = null;
       
-      // Send final resize update
+      
       if (this.selectedShape) {
         this.socket.send(JSON.stringify({
           type: "edit_shape",
@@ -1242,17 +1283,17 @@ export class Game {
       return;
     }
     
-    // Finish freehand drawing
+    
     if (this.isDrawingPath) {
       this.isDrawingPath = false;
       if (this.currentPathPoints.length > 1) {
-        // Try to recognize the shape
+        
         const recognizedShape = this.analyzeShape(this.currentPathPoints);
         
         let shape: Shape;
         
         if (recognizedShape && recognizedShape.confidence > 0.6) {
-          // Create the recognized geometric shape
+          
           shape = {
             id: this.generateShapeId(),
             type: recognizedShape.type as any,
@@ -1263,7 +1304,7 @@ export class Game {
           console.log(`Shape recognized as ${recognizedShape.type} with confidence ${recognizedShape.confidence}`);
           this.showShapeRecognitionNotification(recognizedShape.type, recognizedShape.confidence);
         } else {
-          // Fall back to path if no shape is recognized
+          
           shape = {
             id: this.generateShapeId(),
             type: "path",
@@ -1297,10 +1338,10 @@ export class Game {
       return;
     }
     
-    // Create shapes with other tools (rect, circle, line)
-    if (this.isDrawingShape && !this.isPanning && !this.isDraggingShape) {
+    
+      if (this.isDrawingShape && !this.isPanning && !this.isDraggingShape) {
       const rect = this.canvas.getBoundingClientRect();
-      const endX = this.currentTouchX || this.startX; // Use current touch position if available
+      const endX = this.currentTouchX || this.startX; 
       const endY = this.currentTouchY || this.startY;
       
       const startWorldPos = this.screenToWorld(this.startX, this.startY);
@@ -1311,10 +1352,10 @@ export class Game {
       
       let shape: Shape | null = null;
       
-      if (this.selectedTool === "rect") {
+      if (this.selectedTool === "rect" || this.selectedTool === "ellipse" || this.selectedTool === "triangle") {
         shape = {
           id: this.generateShapeId(),
-          type: "rect",
+          type: this.selectedTool === "rect" ? "rect" : this.selectedTool === "ellipse" ? "ellipse" : "triangle",
           x: startWorldPos.x,
           y: startWorldPos.y,
           width: Math.abs(width),
@@ -1383,9 +1424,9 @@ export class Game {
   getShapeAtPosition(x: number, y: number): Shape | null {
     for (let i = this.existingShapes.length - 1; i >= 0; i--) {
       const shape = this.existingShapes[i];
-      if (!shape || !shape.type || !(shape as any).id) continue; // Skip invalid shapes
+      if (!shape || !shape.type || !(shape as any).id) continue; 
       
-      if (shape.type === "rect") {
+      if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
         if (x >= shape.x && x <= shape.x + shape.width && y >= shape.y && y <= shape.y + shape.height)
           return shape;
       } else if (shape.type === "circle") {
@@ -1404,8 +1445,8 @@ export class Game {
           if (dist <= 6 / this.scale) return shape;
         }
       } else if (shape.type === "text") {
-        // Check if click is within text bounds
-        // Create a temporary canvas context to measure text
+        
+        
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d')!;
         tempCtx.font = `${shape.fontSize}px Arial`;
@@ -1424,7 +1465,7 @@ export class Game {
     return null;
   }
 
-  // Smooth drawing optimization
+  
   private requestRedraw() {
     if (!this.needsRedraw) {
       this.needsRedraw = true;
@@ -1435,34 +1476,64 @@ export class Game {
     }
   }
 
-  // Improved text rendering with better fonts
-  private renderText(text: string, x: number, y: number, fontSize: number, color: string, fontFamily: string = 'default') {
+  
+  private renderText(
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number,
+    color: string,
+    fontFamily: string = 'default'
+  ) {
     this.ctx.save();
-    
-    // Set font with better rendering
-    const font = this.textFonts[fontFamily] || this.textFonts['default'];
-    this.ctx.font = font.replace('16px', `${fontSize}px`);
+
+    const baseFont = this.textFonts[fontFamily] || this.textFonts['default'];
+    this.ctx.font = baseFont.replace('16px', `${fontSize}px`);
     this.ctx.fillStyle = color;
     this.ctx.textBaseline = 'top';
     this.ctx.textAlign = 'left';
-    
-    // Enable text rendering optimizations
+
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
-    
-    // Add subtle text shadow for better readability
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-    this.ctx.shadowBlur = 1;
-    this.ctx.shadowOffsetX = 0;
-    this.ctx.shadowOffsetY = 1;
-    
-    // Render text
-    this.ctx.fillText(text, x, y);
-    
+
+    const lineHeight = fontSize * 1.3;
+    const padding = 4;
+    const lines = text.split('\n');
+
+    // Measure max width
+    let maxWidth = 0;
+    for (const line of lines) {
+      const metrics = this.ctx.measureText(line || ' ');
+      maxWidth = Math.max(maxWidth, metrics.width);
+    }
+
+    // Draw subtle background box for better readability
+    this.ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    this.ctx.strokeStyle = 'rgba(15,23,42,0.06)';
+    this.ctx.lineWidth = 1;
+
+    this.ctx.beginPath();
+    this.ctx.roundRect(
+      x - padding,
+      y - padding,
+      maxWidth + padding * 2,
+      lines.length * lineHeight + padding * 2,
+      4
+    );
+    this.ctx.fill();
+    this.ctx.stroke();
+
+    // Draw text lines
+    this.ctx.fillStyle = color;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] || ' ';
+      this.ctx.fillText(line, x, y + i * lineHeight);
+    }
+
     this.ctx.restore();
   }
 
-  // Smooth path drawing with interpolation
+  
   private drawSmoothPath(points: { x: number; y: number }[], style: ShapeStyle) {
     if (points.length < 2) return;
     
@@ -1474,21 +1545,21 @@ export class Game {
     this.ctx.imageSmoothingEnabled = true;
     this.ctx.imageSmoothingQuality = 'high';
     
-    // Apply stroke style
+    
     this.applyStrokeStyle(this.ctx, style.strokeStyle);
     
     this.ctx.beginPath();
     
-    // Start with first point
+    
     const firstPoint = this.worldToScreen(points[0].x, points[0].y);
     this.ctx.moveTo(firstPoint.x, firstPoint.y);
     
-    // Draw smooth curve through points
+    
     for (let i = 1; i < points.length - 1; i++) {
       const current = this.worldToScreen(points[i].x, points[i].y);
       const next = this.worldToScreen(points[i + 1].x, points[i + 1].y);
       
-      // Calculate control points for smooth curve
+      
       const cp1x = current.x + (next.x - (i > 0 ? this.worldToScreen(points[i - 1].x, points[i - 1].y).x : current.x)) * 0.3;
       const cp1y = current.y + (next.y - (i > 0 ? this.worldToScreen(points[i - 1].x, points[i - 1].y).y : current.y)) * 0.3;
       const cp2x = next.x - (next.x - current.x) * 0.3;
@@ -1497,7 +1568,7 @@ export class Game {
       this.ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, next.x, next.y);
     }
     
-    // Handle last point
+    
     if (points.length > 1) {
       const lastPoint = this.worldToScreen(points[points.length - 1].x, points[points.length - 1].y);
       this.ctx.lineTo(lastPoint.x, lastPoint.y);
@@ -1508,7 +1579,7 @@ export class Game {
   }
 
   clearCanvas() {
-    // Cancel any pending animation frame
+    
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -1516,11 +1587,11 @@ export class Game {
     
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // Create a subtle grid background
-    this.ctx.fillStyle = "#ffffff"; // White background for whiteboard
+    
+    this.ctx.fillStyle = "#ffffff"; 
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
-    // Draw subtle grid lines with better performance
+    
     this.ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
     this.ctx.lineWidth = 1;
     this.ctx.imageSmoothingEnabled = true;
@@ -1530,7 +1601,7 @@ export class Game {
     const startX = Math.floor(this.offsetX / gridSize) * gridSize;
     const startY = Math.floor(this.offsetY / gridSize) * gridSize;
     
-    // Batch grid drawing for better performance
+    
     this.ctx.beginPath();
     for (let x = startX; x <= this.canvas.width + gridSize; x += gridSize) {
       this.ctx.moveTo(x, 0);
@@ -1542,19 +1613,19 @@ export class Game {
     }
     this.ctx.stroke();
 
-    // Filter out any undefined or null shapes
+    
     const validShapes = this.existingShapes.filter(shape => 
       shape && typeof shape === 'object' && shape.type && (shape as any).id
     );
     
     validShapes.forEach((shape) => {
-      // Apply shape styling
+      
       const style = shape.style || this.currentStyle;
       this.ctx.globalAlpha = style.opacity;
       
-      // Apply stroke style
+      
       if (this.selectedShape === shape) {
-        this.ctx.strokeStyle = "#FCD34D"; // Yellow for selected
+        this.ctx.strokeStyle = "#FCD34D"; 
         this.ctx.lineWidth = 3;
         this.ctx.setLineDash([5, 5]);
       } else {
@@ -1563,24 +1634,74 @@ export class Game {
         this.applyStrokeStyle(this.ctx, style.strokeStyle);
       }
 
-      if (shape.type === "rect") {
+      if (shape.type === "rect" || shape.type === "ellipse" || shape.type === "triangle") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
         const screenWidth = shape.width * this.scale;
         const screenHeight = shape.height * this.scale;
         
-        // Apply gradient or solid fill
-        if (style.gradient && style.gradient.type !== "none") {
-          const gradient = this.applyGradient(this.ctx, shape, style.gradient);
-          if (gradient) {
-            this.ctx.fillStyle = gradient;
+        
+        if (shape.type === "rect") {
+          if (style.gradient && style.gradient.type !== "none") {
+            const gradient = this.applyGradient(this.ctx, shape, style.gradient);
+            if (gradient) {
+              this.ctx.fillStyle = gradient;
+              this.ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+            }
+          } else if (style.fillColor && style.fillColor !== "transparent") {
+            this.ctx.fillStyle = style.fillColor;
             this.ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
           }
-        } else {
-          this.ctx.fillStyle = style.fillColor;
-          this.ctx.fillRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+          
+          this.ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+        } else if (shape.type === "ellipse") {
+          const cx = screenPos.x + screenWidth / 2;
+          const cy = screenPos.y + screenHeight / 2;
+          const rx = Math.abs(screenWidth) / 2;
+          const ry = Math.abs(screenHeight) / 2;
+
+          this.ctx.beginPath();
+          this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+
+          if (style.gradient && style.gradient.type !== "none") {
+            const gradient = this.applyGradient(this.ctx, shape, style.gradient);
+            if (gradient) {
+              this.ctx.fillStyle = gradient;
+              this.ctx.fill();
+            }
+          } else if (style.fillColor && style.fillColor !== "transparent") {
+            this.ctx.fillStyle = style.fillColor;
+            this.ctx.fill();
+          }
+
+          this.ctx.stroke();
+          this.ctx.closePath();
+        } else if (shape.type === "triangle") {
+          const x1 = screenPos.x + screenWidth / 2;
+          const y1 = screenPos.y;
+          const x2 = screenPos.x;
+          const y2 = screenPos.y + screenHeight;
+          const x3 = screenPos.x + screenWidth;
+          const y3 = screenPos.y + screenHeight;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(x1, y1);
+          this.ctx.lineTo(x2, y2);
+          this.ctx.lineTo(x3, y3);
+          this.ctx.closePath();
+
+          if (style.gradient && style.gradient.type !== "none") {
+            const gradient = this.applyGradient(this.ctx, shape, style.gradient);
+            if (gradient) {
+              this.ctx.fillStyle = gradient;
+              this.ctx.fill();
+            }
+          } else if (style.fillColor && style.fillColor !== "transparent") {
+            this.ctx.fillStyle = style.fillColor;
+            this.ctx.fill();
+          }
+
+          this.ctx.stroke();
         }
-        
-        this.ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
       } else if (shape.type === "circle") {
         const screenPos = this.worldToScreen(shape.centerX, shape.centerY);
         const screenRadius = Math.abs(shape.radius) * this.scale;
@@ -1588,14 +1709,14 @@ export class Game {
         this.ctx.beginPath();
         this.ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
         
-        // Apply gradient or solid fill
+        
         if (style.gradient && style.gradient.type !== "none") {
           const gradient = this.applyGradient(this.ctx, shape, style.gradient);
           if (gradient) {
             this.ctx.fillStyle = gradient;
             this.ctx.fill();
           }
-        } else {
+        } else if (style.fillColor && style.fillColor !== "transparent") {
           this.ctx.fillStyle = style.fillColor;
           this.ctx.fill();
         }
@@ -1612,22 +1733,22 @@ export class Game {
         this.ctx.closePath();
       } else if (shape.type === "path") {
         if (shape.points.length > 1) {
-          // Use smooth path drawing for better quality
+          
           this.drawSmoothPath(shape.points, style);
         }
       } else if (shape.type === "text") {
         const screenPos = this.worldToScreen(shape.x, shape.y);
-        // Keep text size consistent regardless of zoom level
+        
         const baseFontSize = shape.fontSize || 16;
         const adjustedFontSize = Math.max(12, baseFontSize / this.scale);
         
-        // Use text color from style or fallback to shape color
+        
         const textColor = shape.style?.textColor || shape.color || "#000000";
         
-        // Use improved text rendering
+        
         this.renderText(shape.text, screenPos.x, screenPos.y, adjustedFontSize, textColor, 'default');
         
-        // Draw selection border for text
+        
         if (this.selectedShape === shape) {
           const metrics = this.ctx.measureText(shape.text);
           const textWidth = metrics.width;
@@ -1642,15 +1763,15 @@ export class Game {
             textHeight + 4
           );
           
-          // Draw text cursor if typing and blinking
+          
           if (this.selectedTool === "text" && this.cursorBlink) {
             const cursorX = screenPos.x + metrics.width;
             const cursorY = screenPos.y;
             const cursorHeight = textHeight;
             
-            this.ctx.strokeStyle = "#FFFFFF"; // White cursor
+            this.ctx.strokeStyle = "#FFFFFF"; 
             this.ctx.lineWidth = 2;
-            this.ctx.setLineDash([]); // Solid line
+            this.ctx.setLineDash([]); 
             this.ctx.beginPath();
             this.ctx.moveTo(cursorX, cursorY);
             this.ctx.lineTo(cursorX, cursorY + cursorHeight);
@@ -1660,24 +1781,31 @@ export class Game {
       }
     });
 
-    // If drawing a freehand path, render the preview with smooth drawing
+    
     if (this.isDrawingPath && this.currentPathPoints.length > 1) {
       const previewStyle: ShapeStyle = {
         ...this.currentStyle,
-        strokeColor: "#9CA3AF", // Gray for preview
+        strokeColor: "#9CA3AF", 
         strokeWidth: 2
       };
       this.drawSmoothPath(this.currentPathPoints, previewStyle);
     }
 
-    // Draw resize handles for selected shape
-    if (this.selectedShape && (this.selectedShape.type === "rect" || this.selectedShape.type === "circle" || this.selectedShape.type === "text")) {
+    
+    if (
+      this.selectedShape &&
+      (this.selectedShape.type === "rect" ||
+        this.selectedShape.type === "ellipse" ||
+        this.selectedShape.type === "triangle" ||
+        this.selectedShape.type === "circle" ||
+        this.selectedShape.type === "text")
+    ) {
       const handles = this.getResizeHandles(this.selectedShape);
       
       console.log('Drawing', handles.length, 'resize handles for', this.selectedShape.type);
       
-      this.ctx.fillStyle = "#4ECDC4"; // Teal handles for better visibility (less pinkish)
-      this.ctx.strokeStyle = "#FFFFFF"; // White border
+      this.ctx.fillStyle = "#4ECDC4"; 
+      this.ctx.strokeStyle = "#FFFFFF"; 
       this.ctx.lineWidth = 2;
       
       handles.forEach(handle => {
@@ -1686,7 +1814,7 @@ export class Game {
       });
     }
 
-    // Draw palm scrolling indicator
+    
     if (this.isPalmScrolling) {
           this.ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -1697,7 +1825,7 @@ export class Game {
       this.ctx.fillText("Palm Scrolling Active", this.canvas.width / 2, this.canvas.height / 2);
     }
 
-    // Draw clipboard indicator
+    
     if (this.clipboardShapes.length > 0) {
       this.ctx.fillStyle = "rgba(76, 205, 196, 0.2)";
       this.ctx.fillRect(10, 10, 200, 40);
@@ -1709,11 +1837,11 @@ export class Game {
       this.ctx.fillText("Ctrl+V to paste", 20, 50);
     }
 
-    // Render remote cursors
+    
     this.renderRemoteCursors();
   }
 
-  // Note: touchStartHandler, touchMoveHandler, and touchEndHandler are already defined above - removing duplicates
+  
 
   mouseDownHandler = (e: MouseEvent) => {
     const rect = this.canvas.getBoundingClientRect();
@@ -1723,13 +1851,13 @@ export class Game {
     this.startX = x;
     this.startY = y;
 
-    // Send cursor update when mouse is pressed
+    
     this.sendCursorUpdate(x, y, true);
 
-    if (e.button === 0) { // Left click
+    if (e.button === 0) { 
       const worldPos = this.screenToWorld(x, y);
 
-      // Start freehand path if pencil selected
+      
       if (this.selectedTool === "pencil") {
         this.isDrawingPath = true;
         this.clicked = true;
@@ -1738,16 +1866,16 @@ export class Game {
         return;
       }
 
-      // Handle color picker tool
+      
       if (this.selectedTool === "colorpicker" as Tool) {
         const shape = this.getShapeAtPosition(worldPos.x, worldPos.y);
         if (shape && shape.style) {
-          // Copy the shape's colors to current style
+          
           this.currentStyle.fillColor = shape.style.fillColor;
           this.currentStyle.strokeColor = shape.style.strokeColor;
           this.currentStyle.textColor = shape.style.textColor;
           
-          // Emit event to update UI
+          
           this.canvas.dispatchEvent(new CustomEvent('colorPicked', { 
             detail: { 
               fillColor: shape.style.fillColor,
@@ -1765,9 +1893,9 @@ export class Game {
         return;
       }
 
-      // Handle text tool
+      
       if (this.selectedTool === "text" as Tool) {
-        // Create a new text shape
+        
         const textShape: Shape = {
           id: this.generateShapeId(),
           type: "text",
@@ -1784,25 +1912,25 @@ export class Game {
         this.selectedShape = textShape;
         this.clearCanvas();
         
-        // Send to other users
+        
         this.socket.send(JSON.stringify({ 
           type: "draw", 
           shape: textShape, 
           roomId: this.roomId 
         }));
         
-        // Emit event for text editing
+        
         this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
           detail: { shapeId: textShape.id, text: "" } 
         }));
         
-        // Start cursor blinking
+        
         this.startCursorBlink();
         
         return;
       }
 
-      // Check for resize handles first
+      
       const resizeHandle = this.getResizeHandleAtPosition(x, y);
       if (resizeHandle) {
         console.log('Starting resize:', resizeHandle.handle, 'on shape:', resizeHandle.shape.type);
@@ -1810,7 +1938,7 @@ export class Game {
         this.resizingHandle = resizeHandle.handle;
         this.resizeStartX = worldPos.x;
         this.resizeStartY = worldPos.y;
-        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); // Deep copy
+        this.originalShape = JSON.parse(JSON.stringify(resizeHandle.shape)); 
         this.canvas.style.cursor = "nw-resize";
         return;
       }
@@ -1822,7 +1950,7 @@ export class Game {
         this.isDragging = true;
         this.isDraggingShape = true;
 
-        // Calculate drag offset from the click position to the shape's reference point
+        
         if (shape.type === "rect") {
           this.dragOffsetX = worldPos.x - shape.x;
           this.dragOffsetY = worldPos.y - shape.y;
@@ -1830,7 +1958,7 @@ export class Game {
           this.dragOffsetX = worldPos.x - shape.centerX;
           this.dragOffsetY = worldPos.y - shape.centerY;
         } else if (shape.type === "line") {
-          // For lines, use the start point as reference
+          
           this.dragOffsetX = worldPos.x - shape.startX;
           this.dragOffsetY = worldPos.y - shape.startY;
         } else if (shape.type === "path") {
@@ -1840,7 +1968,7 @@ export class Game {
           this.dragOffsetX = worldPos.x - shape.x;
           this.dragOffsetY = worldPos.y - shape.y;
           
-          // If text tool is selected, allow editing
+          
           if (this.selectedTool === "text" as Tool) {
             this.canvas.dispatchEvent(new CustomEvent('textEdit', { 
               detail: { shapeId: shape.id, text: shape.text } 
@@ -1853,7 +1981,7 @@ export class Game {
       }
 
       this.clicked = true;
-    } else if (e.button === 2) { // Right click
+    } else if (e.button === 2) { 
       e.preventDefault();
       this.isPanning = true;
       this.canvas.style.cursor = "grab";
@@ -1863,20 +1991,20 @@ export class Game {
   mouseUpHandler = (e: MouseEvent) => {
     this.clicked = false;
 
-    // Send cursor update when mouse is released
+    
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     this.sendCursorUpdate(x, y, false);
 
-    if (e.button === 0) { // Left click
-      // Finish resizing
+    if (e.button === 0) { 
+      
       if (this.isResizing) {
         this.isResizing = false;
         this.resizingHandle = null;
         this.canvas.style.cursor = "crosshair";
         
-        // Send final resize update
+        
         if (this.selectedShape) {
           this.socket.send(JSON.stringify({
             type: "edit_shape",
@@ -1888,17 +2016,17 @@ export class Game {
         return;
       }
 
-      // Finish freehand drawing
+      
       if (this.isDrawingPath) {
         this.isDrawingPath = false;
         if (this.currentPathPoints.length > 1) {
-          // Try to recognize the shape
+          
           const recognizedShape = this.analyzeShape(this.currentPathPoints);
           
           let shape: Shape;
           
           if (recognizedShape && recognizedShape.confidence > 0.6) {
-            // Create the recognized geometric shape
+            
             shape = {
               id: this.generateShapeId(),
               type: recognizedShape.type as any,
@@ -1909,7 +2037,7 @@ export class Game {
             console.log(`Shape recognized as ${recognizedShape.type} with confidence ${recognizedShape.confidence}`);
             this.showShapeRecognitionNotification(recognizedShape.type, recognizedShape.confidence);
           } else {
-            // Fall back to path if no shape is recognized
+            
             shape = {
               id: this.generateShapeId(),
               type: "path",
@@ -1932,7 +2060,7 @@ export class Game {
         this.isDragging = false;
         this.isDraggingShape = false;
         
-        // Send final position update when dragging stops
+        
         if (this.selectedShape) {
           this.socket.send(JSON.stringify({
             type: "edit_shape",
@@ -1955,10 +2083,10 @@ export class Game {
 
       let shape: Shape | null = null;
 
-      if (this.selectedTool === "rect") {
+      if (this.selectedTool === "rect" || this.selectedTool === "ellipse" || this.selectedTool === "triangle") {
         shape = {
           id: this.generateShapeId(),
-          type: "rect",
+          type: this.selectedTool === "rect" ? "rect" : this.selectedTool === "ellipse" ? "ellipse" : "triangle",
           x: startWorldPos.x,
           y: startWorldPos.y,
           width,
@@ -1998,7 +2126,7 @@ export class Game {
         shape,
         roomId: this.roomId
       }));
-    } else if (e.button === 2) { // Right click
+    } else if (e.button === 2) { 
       this.isPanning = false;
       this.canvas.style.cursor = "crosshair";
     }
@@ -2009,16 +2137,16 @@ export class Game {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Send cursor update to other users
+    
     this.sendCursorUpdate(x, y, this.clicked);
 
-    // Handle resizing
+    
     if (this.isResizing && this.selectedShape && this.resizingHandle) {
       const worldPos = this.screenToWorld(x, y);
       this.resizeShape(this.selectedShape, this.resizingHandle, worldPos.x, worldPos.y);
       this.clearCanvas();
       
-      // Send resize update to other users
+      
       this.socket.send(JSON.stringify({
         type: "edit_shape",
         shape: this.selectedShape,
@@ -2037,7 +2165,7 @@ export class Game {
       return;
     }
 
-    // Freehand drawing in progress
+    
     if (this.isDrawingPath && this.clicked) {
       const worldPos = this.screenToWorld(x, y);
       this.currentPathPoints.push({ x: worldPos.x, y: worldPos.y });
@@ -2046,7 +2174,7 @@ export class Game {
     }
 
     if (this.clicked && this.isDragging && this.selectedShape) {
-      // Update shape position during drag
+      
       const worldPos = this.screenToWorld(x, y);
       
       if (this.selectedShape.type === "rect") {
@@ -2087,24 +2215,50 @@ export class Game {
       
       this.clearCanvas();
       
-      // Set preview color based on selected tool
+      
       if (this.selectedTool === "line") {
-        this.ctx.strokeStyle = "#4ECDC4"; // Teal for lines
-      } else if (this.selectedTool === "rect") {
-        this.ctx.strokeStyle = "#FF6B6B"; // Red for rectangles
-      } else if (this.selectedTool === "circle") {
-        this.ctx.strokeStyle = "#96CEB4"; // Green for circles
+        this.ctx.strokeStyle = "#4ECDC4"; 
+      } else if (this.selectedTool === "rect" || this.selectedTool === "triangle") {
+        this.ctx.strokeStyle = "#FF6B6B"; 
+      } else if (this.selectedTool === "circle" || this.selectedTool === "ellipse") {
+        this.ctx.strokeStyle = "#96CEB4"; 
       } else if (this.selectedTool === "pencil") {
-        this.ctx.strokeStyle = "#9CA3AF"; // Gray for pencil preview
+        this.ctx.strokeStyle = "#9CA3AF"; 
       }
       
       this.ctx.lineWidth = 2;
 
-      if (this.selectedTool === "rect") {
+      if (this.selectedTool === "rect" || this.selectedTool === "triangle" || this.selectedTool === "ellipse") {
         const screenPos = this.worldToScreen(startWorldPos.x, startWorldPos.y);
         const screenWidth = width * this.scale;
         const screenHeight = height * this.scale;
-        this.ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+        if (this.selectedTool === "rect") {
+          this.ctx.strokeRect(screenPos.x, screenPos.y, screenWidth, screenHeight);
+        } else if (this.selectedTool === "ellipse") {
+          const cx = screenPos.x + screenWidth / 2;
+          const cy = screenPos.y + screenHeight / 2;
+          const rx = Math.abs(screenWidth) / 2;
+          const ry = Math.abs(screenHeight) / 2;
+
+          this.ctx.beginPath();
+          this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.closePath();
+        } else if (this.selectedTool === "triangle") {
+          const x1 = screenPos.x + screenWidth / 2;
+          const y1 = screenPos.y;
+          const x2 = screenPos.x;
+          const y2 = screenPos.y + screenHeight;
+          const x3 = screenPos.x + screenWidth;
+          const y3 = screenPos.y + screenHeight;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(x1, y1);
+          this.ctx.lineTo(x2, y2);
+          this.ctx.lineTo(x3, y3);
+          this.ctx.closePath();
+          this.ctx.stroke();
+        }
       } else if (this.selectedTool === "circle") {
         const radius = Math.sqrt(width * width + height * height) / 2;
         const centerWorldX = startWorldPos.x + width / 2;
@@ -2144,14 +2298,14 @@ export class Game {
   };
 
   initMouseHandlers() {
-    // Mouse events
+    
     this.canvas.addEventListener("mousedown", this.mouseDownHandler);
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);
     this.canvas.addEventListener("mousemove", this.mouseMoveHandler);
     this.canvas.addEventListener("wheel", this.wheelHandler);
     this.canvas.addEventListener("contextmenu", this.contextMenuHandler);
 
-    // Touch events for mobile
+    
     this.canvas.addEventListener("touchstart", this.touchStartHandler, { passive: false });
     this.canvas.addEventListener("touchend", this.touchEndHandler, { passive: false });
     this.canvas.addEventListener("touchmove", this.touchMoveHandler, { passive: false });
@@ -2166,18 +2320,18 @@ export class Game {
       
       if (shape) {
         if (this.selectedTool === "erase") {
-          // Erase the shape
+          
           this.existingShapes = this.existingShapes.filter(s => s.id !== shape.id);
           this.clearCanvas();
           
-          // Send erase message to other users
+          
           this.socket.send(JSON.stringify({
             type: "erase",
             shapeId: shape.id,
             roomId: this.roomId
           }));
         } else {
-          // Select the shape for editing
+          
           this.selectedShape = shape;
           if (shape.type === "rect") {
             this.dragOffsetX = worldPos.x - shape.x;
@@ -2201,7 +2355,7 @@ export class Game {
     });
   }
 
-  // Draw preview of shape being drawn
+  
   private drawShapePreview() {
     if (!this.isDrawingShape || this.isPanning || this.isDraggingShape) return;
     
@@ -2213,13 +2367,40 @@ export class Game {
     this.ctx.lineWidth = 2;
     this.ctx.setLineDash([5, 5]);
     
-    if (this.selectedTool === "rect") {
+    if (this.selectedTool === "rect" || this.selectedTool === "ellipse" || this.selectedTool === "triangle") {
       const width = endWorldPos.x - startWorldPos.x;
       const height = endWorldPos.y - startWorldPos.y;
       const screenStart = this.worldToScreen(startWorldPos.x, startWorldPos.y);
       const screenEnd = this.worldToScreen(startWorldPos.x + width, startWorldPos.y + height);
-      
-      this.ctx.strokeRect(screenStart.x, screenStart.y, screenEnd.x - screenStart.x, screenEnd.y - screenStart.y);
+      const w = screenEnd.x - screenStart.x;
+      const h = screenEnd.y - screenStart.y;
+
+      if (this.selectedTool === "rect") {
+        this.ctx.strokeRect(screenStart.x, screenStart.y, w, h);
+      } else if (this.selectedTool === "ellipse") {
+        const cx = screenStart.x + w / 2;
+        const cy = screenStart.y + h / 2;
+        const rx = Math.abs(w) / 2;
+        const ry = Math.abs(h) / 2;
+
+        this.ctx.beginPath();
+        this.ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        this.ctx.stroke();
+      } else if (this.selectedTool === "triangle") {
+        const x1 = screenStart.x + w / 2;
+        const y1 = screenStart.y;
+        const x2 = screenStart.x;
+        const y2 = screenStart.y + h;
+        const x3 = screenStart.x + w;
+        const y3 = screenStart.y + h;
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(x1, y1);
+        this.ctx.lineTo(x2, y2);
+        this.ctx.lineTo(x3, y3);
+        this.ctx.closePath();
+        this.ctx.stroke();
+      }
     } else if (this.selectedTool === "circle") {
       const width = endWorldPos.x - startWorldPos.x;
       const height = endWorldPos.y - startWorldPos.y;
@@ -2245,7 +2426,7 @@ export class Game {
     this.ctx.restore();
   }
 
-  // Send user activity update to WebSocket server
+  
   private sendUserActivity(activity: string) {
     try {
       const token = localStorage.getItem("authToken");
@@ -2265,15 +2446,15 @@ export class Game {
     }
   }
 
-  // Enhanced drawing methods with activity tracking
+  
   private drawShape(shape: Shape) {
-    // Send drawing activity
+    
     this.sendUserActivity("drawing");
     
-    // Add shape to existing shapes
+    
     this.existingShapes.push(shape);
     
-    // Send shape to other users
+    
     this.socket.send(JSON.stringify({
       type: "draw",
       shape: shape,
@@ -2283,11 +2464,11 @@ export class Game {
     this.clearCanvas();
   }
 
-  // Shape recognition methods
+  
   private analyzeShape(points: { x: number; y: number }[]): { type: string; shape: any; confidence: number } | null {
     if (points.length < 3) return null;
 
-    // Calculate bounding box
+    
     const minX = Math.min(...points.map(p => p.x));
     const maxX = Math.max(...points.map(p => p.x));
     const minY = Math.min(...points.map(p => p.y));
@@ -2295,11 +2476,11 @@ export class Game {
     const width = maxX - minX;
     const height = maxY - minY;
 
-    // Calculate path length and area
+    
     const pathLength = this.calculatePathLength(points);
     const area = this.calculatePathArea(points);
 
-    // Analyze shape characteristics
+    
     const aspectRatio = width / height;
     const circularity = this.calculateCircularity(points, area);
     const rectangularity = this.calculateRectangularity(points, width, height, area);
@@ -2313,9 +2494,9 @@ export class Game {
       points: points.length
     });
 
-    // Determine shape type based on characteristics
+    
     if (linearity > 0.85) {
-      // High linearity suggests a line
+      
       const startPoint = points[0];
       const endPoint = points[points.length - 1];
       return {
@@ -2328,12 +2509,12 @@ export class Game {
         },
         confidence: linearity
       };
-    } else if (circularity > 0.5) { // Lowered threshold from 0.7 to 0.5
-      // High circularity suggests a circle
+    } else if (circularity > 0.5) { 
+      
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
       
-      // Calculate average radius from all points to center
+      
       let totalRadius = 0;
       for (const point of points) {
         const distance = Math.sqrt(Math.pow(point.x - centerX, 2) + Math.pow(point.y - centerY, 2));
@@ -2351,7 +2532,7 @@ export class Game {
         confidence: circularity
       };
     } else if (rectangularity > 0.6) {
-      // High rectangularity suggests a rectangle
+      
       return {
         type: "rect",
         shape: {
@@ -2397,7 +2578,7 @@ export class Game {
     const width = maxX - minX;
     const height = maxY - minY;
     
-    // Calculate center point
+    
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     
@@ -2405,14 +2586,14 @@ export class Game {
     const idealRadius = Math.max(width, height) / 2;
     const idealPerimeter = 2 * Math.PI * idealRadius;
     
-    // Compare actual perimeter to ideal circle perimeter
+    
     const perimeterRatio = Math.min(perimeter, idealPerimeter) / Math.max(perimeter, idealPerimeter);
     
-    // Compare actual area to ideal circle area
+    
     const idealArea = Math.PI * idealRadius * idealRadius;
     const areaRatio = Math.min(area, idealArea) / Math.max(area, idealArea);
     
-    // Calculate distance from center consistency
+    
     let totalDistance = 0;
     let distanceVariance = 0;
     const distances: number[] = [];
@@ -2425,16 +2606,16 @@ export class Game {
     
     const avgDistance = totalDistance / points.length;
     
-    // Calculate variance in distances from center
+    
     for (const distance of distances) {
       distanceVariance += Math.pow(distance - avgDistance, 2);
     }
     distanceVariance /= points.length;
     
-    // Normalize variance (lower is better for circles)
+    
     const distanceConsistency = Math.max(0, 1 - (distanceVariance / (avgDistance * avgDistance)));
     
-    // Check if the shape is roughly closed (start and end points are close)
+    
     const startPoint = points[0];
     const endPoint = points[points.length - 1];
     const startEndDistance = Math.sqrt(
@@ -2442,7 +2623,7 @@ export class Game {
     );
     const closureRatio = Math.max(0, 1 - (startEndDistance / perimeter));
     
-    // Combine all factors for final circularity score
+    
     const circularity = (
       perimeterRatio * 0.3 + 
       areaRatio * 0.3 + 
@@ -2467,7 +2648,7 @@ export class Game {
     const idealArea = width * height;
     const areaRatio = Math.min(area, idealArea) / Math.max(area, idealArea);
     
-    // Check if points form roughly rectangular shape
+    
     const corners = this.findCorners(points);
     const cornerScore = Math.min(corners.length, 4) / 4;
     
@@ -2492,7 +2673,7 @@ export class Game {
 
   private findCorners(points: { x: number; y: number }[]): { x: number; y: number }[] {
     const corners: { x: number; y: number }[] = [];
-    const threshold = 0.3; // Threshold for corner detection
+    const threshold = 0.3; 
     
     for (let i = 1; i < points.length - 1; i++) {
       const prev = points[i - 1];
@@ -2512,7 +2693,7 @@ export class Game {
   }
 
   private showShapeRecognitionNotification(shapeType: string, confidence: number) {
-    // Create notification element
+    
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -2545,12 +2726,12 @@ export class Game {
     notification.appendChild(text);
     document.body.appendChild(notification);
     
-    // Animate in
+    
     setTimeout(() => {
       notification.style.transform = 'translateX(0)';
     }, 10);
     
-    // Remove after 3 seconds
+    
     setTimeout(() => {
       notification.style.transform = 'translateX(100%)';
       setTimeout(() => {
@@ -2570,12 +2751,13 @@ export class Game {
     }
   }
 
-  // Real-time cursor methods
+  
   setCurrentUserId(userId: string) {
     this.currentUserId = userId;
   }
 
   updateRemoteCursor(userId: string, x: number, y: number, username: string, color: string, isDrawing: boolean = false) {
+    console.log(`Cursor update from ${username}: (${x}, ${y}), color: ${color}, drawing: ${isDrawing}`);
     this.remoteCursors.set(userId, {
       x,
       y,
@@ -2592,6 +2774,15 @@ export class Game {
     this.requestRedraw();
   }
 
+  clearRemoteCursors() {
+    this.remoteCursors.clear();
+    this.requestRedraw();
+  }
+
+  getRemoteCursorCount(): number {
+    return this.remoteCursors.size;
+  }
+
   private sendCursorUpdate(x: number, y: number, isDrawing: boolean = false) {
     const now = Date.now();
     if (now - this.lastCursorUpdate < this.cursorUpdateThrottle) {
@@ -2600,11 +2791,14 @@ export class Game {
     
     this.lastCursorUpdate = now;
     
+    const worldPos = this.screenToWorld(x, y);
+    console.log(`Sending cursor update: (${worldPos.x}, ${worldPos.y}), drawing: ${isDrawing}`);
+    
     this.socket.send(JSON.stringify({
       type: "cursor_update",
       userId: this.currentUserId,
-      x: this.screenToWorld(x, y).x,
-      y: this.screenToWorld(x, y).y,
+      x: worldPos.x,
+      y: worldPos.y,
       isDrawing,
       roomId: this.roomId
     }));
@@ -2612,38 +2806,49 @@ export class Game {
 
   private renderRemoteCursors() {
     const now = Date.now();
-    const cursorTimeout = 5000; // Remove cursors after 5 seconds of inactivity
+    const cursorTimeout = 10000; 
+    
+    console.log(`Rendering ${this.remoteCursors.size} remote cursors`);
     
     this.remoteCursors.forEach((cursor, userId) => {
-      // Remove stale cursors
+      
       if (now - cursor.lastUpdate > cursorTimeout) {
         this.remoteCursors.delete(userId);
         return;
       }
       
-      // Don't render our own cursor
+      
       if (userId === this.currentUserId) {
         return;
       }
       
       const screenPos = this.worldToScreen(cursor.x, cursor.y);
       
-      // Draw cursor dot
+      console.log(`Rendering cursor for ${cursor.username} at world (${cursor.x}, ${cursor.y}) -> screen (${screenPos.x}, ${screenPos.y})`);
+      
+      
+      if (screenPos.x < -50 || screenPos.x > this.canvas.width + 50 || 
+          screenPos.y < -50 || screenPos.y > this.canvas.height + 50) {
+        console.log(`Cursor for ${cursor.username} is outside canvas bounds, skipping render`);
+        return;
+      }
+      
+      
       this.ctx.save();
       this.ctx.globalAlpha = 0.9;
       
-      // Cursor background
+      
       this.ctx.fillStyle = cursor.color;
       this.ctx.beginPath();
       this.ctx.arc(screenPos.x, screenPos.y, 8, 0, 2 * Math.PI);
       this.ctx.fill();
       
-      // Cursor border
+      
       this.ctx.strokeStyle = '#ffffff';
       this.ctx.lineWidth = 3;
       this.ctx.stroke();
       
-      // Drawing indicator
+      
       if (cursor.isDrawing) {
         this.ctx.fillStyle = '#ff4444';
         this.ctx.beginPath();
@@ -2651,14 +2856,14 @@ export class Game {
         this.ctx.fill();
       }
       
-      // Username label
+      
       if (cursor.username) {
         this.ctx.fillStyle = cursor.color;
         this.ctx.font = '12px Inter, sans-serif';
         this.ctx.textAlign = 'center';
         this.ctx.fillText(cursor.username, screenPos.x, screenPos.y - 15);
         
-        // Label background
+        
         const textMetrics = this.ctx.measureText(cursor.username);
         const labelWidth = textMetrics.width + 8;
         const labelHeight = 16;
@@ -2671,7 +2876,7 @@ export class Game {
           labelHeight
         );
         
-        // Label text
+        
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fillText(cursor.username, screenPos.x, screenPos.y - 15);
       }

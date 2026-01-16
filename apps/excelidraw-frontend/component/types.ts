@@ -1,5 +1,14 @@
 // Tool types
-export type Tool = "circle" | "rect" | "line" | "erase" | "pencil" | "text" | "colorpicker";
+export type Tool =
+  | "circle"
+  | "rect"
+  | "line"
+  | "erase"
+  | "pencil"
+  | "text"
+  | "colorpicker"
+  | "ellipse"
+  | "triangle";
 
 // Styling types
 export type GradientType = "linear" | "radial" | "none";
@@ -35,6 +44,24 @@ export type Shape =
   | {
       id: string;
       type: "rect";
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      style?: ShapeStyle;
+    }
+  | {
+      id: string;
+      type: "ellipse";
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      style?: ShapeStyle;
+    }
+  | {
+      id: string;
+      type: "triangle";
       x: number;
       y: number;
       width: number;
@@ -98,6 +125,7 @@ export interface CanvasState {
   isConnected: boolean;
   participantCount: number;
   showWelcome: boolean;
+  showQuickTips: boolean;
   canvasSize: { width: number; height: number };
   isPanning: boolean;
 }

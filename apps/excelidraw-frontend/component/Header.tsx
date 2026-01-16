@@ -1,4 +1,4 @@
-import { PenLine, Users, Brain, Sparkles } from "lucide-react";
+import { PenLine, Users, Brain, Sparkles, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -12,6 +12,7 @@ interface HeaderProps {
   onToggleQuickTips: () => void;
   onToggleConnectedUsers?: () => void;
   showConnectedUsers?: boolean;
+  onExitRoom?: () => void;
 }
 
 interface RoomInfo {
@@ -31,7 +32,8 @@ export function Header({
   onToggleAIPanel,
   onToggleQuickTips,
   onToggleConnectedUsers,
-  showConnectedUsers = true
+  showConnectedUsers = true,
+  onExitRoom
 }: HeaderProps) {
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,6 +193,17 @@ export function Header({
         >
           <Sparkles className="w-4 h-4" />
         </button>
+
+        {/* Exit Room */}
+        {onExitRoom && (
+          <button
+            onClick={onExitRoom}
+            className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+            title="Exit room"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ function App() {
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center">
             <PenTool className="h-8 w-8 text-blue-600" />
-            <span className="ml-2 text-xl font-bold">ExcileDraw</span>
+            <span className="ml-2 text-xl font-bold">Collaborative Draw</span>
           </div>
           <div className="flex items-center space-x-4">
             <a href="https://github.com/adnan7398" className="text-gray-600 hover:text-gray-900">

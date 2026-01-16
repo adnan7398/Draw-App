@@ -33,15 +33,16 @@ export default function SignupPage() {
       } else {
         throw new Error(response.data.message || 'Signup failed');
       }
-    } catch (error: any) {
-      if (error.response?.data?.message) {
-        throw new Error(error.response.data.message);
-      } else if (error.response?.data?.errors) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }; message?: string };
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      } else if (err.response?.data?.errors) {
         // Handle validation errors from server
-        const errorMessages = Object.values(error.response.data.errors).flat();
+        const errorMessages = Object.values(err.response.data.errors).flat();
         throw new Error(errorMessages.join(', '));
       } else {
-        throw new Error(error.message || 'Network error. Please try again.');
+        throw new Error(err.message || 'Network error. Please try again.');
       }
     }
   };
@@ -55,8 +56,7 @@ export default function SignupPage() {
     handleBlur,
     handleSubmit,
     getFieldError,
-    isFieldValid,
-    hasFieldError
+    isFieldValid
   } = useFormValidation({
     schema: CreateUserSchema,
     initialValues: {

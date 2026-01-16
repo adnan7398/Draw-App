@@ -1,0 +1,45 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - http-backend
+      - ws-backend
+    networks:
+      - draw-app-network
+
+  http-backend:
+    build:
+      context: .
+      dockerfile: docker/DockerFile.backend
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+    networks:
+      - draw-app-network
+
+  ws-backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.websocket
+    ports:
+      - "8081:8081"
+    environment:
+      - NODE_ENV=production
+      - PORT=8081
+    networks:
+      - draw-app-network
+
+networks:
+  draw-app-network:
+    driver: bridge
+

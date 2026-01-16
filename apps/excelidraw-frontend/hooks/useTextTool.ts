@@ -14,14 +14,24 @@ export function useTextTool(game: Game | undefined, roomId: string) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (textToolState.isTyping && textToolState.currentTextShapeId && game) {
         if (event.key === 'Enter') {
-          setTextToolState(prev => ({
-            ...prev,
-            isTyping: false,
-            currentTextShapeId: null,
-            textInput: ''
-          }));
-          if (game) {
-            game.stopCursorBlink();
+          // Shift+Enter -> newline, Enter -> finish editing
+          if (event.shiftKey) {
+            event.preventDefault();
+            setTextToolState(prev => ({
+              ...prev,
+              textInput: prev.textInput + '\n'
+            }));
+          } else {
+            event.preventDefault();
+            setTextToolState(prev => ({
+              ...prev,
+              isTyping: false,
+              currentTextShapeId: null,
+              textInput: ''
+            }));
+            if (game) {
+              game.stopCursorBlink();
+            }
           }
         } else if (event.key === 'Escape') {
           setTextToolState(prev => ({
@@ -109,7 +119,7 @@ export function useTextTool(game: Game | undefined, roomId: string) {
       // This will be handled by the styling hook
     };
 
-    const canvas = game?.canvas;
+    const canvas = game?.getCanvas();
     if (canvas) {
       canvas.addEventListener('textEdit', handleTextEdit as EventListener);
       canvas.addEventListener('colorPicked', handleColorPicked as EventListener);

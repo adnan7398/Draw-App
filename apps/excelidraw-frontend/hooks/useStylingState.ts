@@ -5,7 +5,7 @@ import { Game } from '@/draw/Game';
 export function useStylingState(game: Game | undefined) {
   const [stylingState, setStylingState] = useState<StylingState>({
     selectedColorType: 'stroke',
-    fillColor: "#E3F2FD",
+    fillColor: "transparent",
     strokeColor: "#1976D2",
     strokeWidth: 2,
     opacity: 1,

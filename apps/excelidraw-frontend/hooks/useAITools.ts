@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AIToolsState, AIAnalysisResult } from '@/component/types';
 import { getMLBackendUrl } from '@/config';
 
-export function useAITools(canvasRef: React.RefObject<HTMLCanvasElement>, roomId: string) {
+export function useAITools(canvasRef: React.RefObject<HTMLCanvasElement | null>, roomId: string) {
   const [aiToolsState, setAiToolsState] = useState<AIToolsState>({
     showAIPanel: false,
     aiLoading: false,

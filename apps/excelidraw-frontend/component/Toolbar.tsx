@@ -1,5 +1,14 @@
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, Eraser, Type, PenLine, Pipette } from "lucide-react";
+import {
+  Circle,
+  Pencil,
+  RectangleHorizontalIcon,
+  Eraser,
+  Type,
+  PenLine,
+  Pipette,
+  Triangle,
+} from "lucide-react";
 import { Tool } from "./types";
 
 interface ToolbarProps {
@@ -22,6 +31,18 @@ export function Toolbar({ selectedTool, onToolSelect }: ToolbarProps) {
           activated={selectedTool === "rect"}
           onClick={() => onToolSelect("rect")}
           label="Rectangle"
+        />
+        <IconButton
+          icon={<Circle size={16} />}
+          activated={selectedTool === "ellipse"}
+          onClick={() => onToolSelect("ellipse")}
+          label="Ellipse"
+        />
+        <IconButton
+          icon={<Triangle size={16} />}
+          activated={selectedTool === "triangle"}
+          onClick={() => onToolSelect("triangle")}
+          label="Triangle"
         />
         <IconButton
           icon={<Circle size={16} />}

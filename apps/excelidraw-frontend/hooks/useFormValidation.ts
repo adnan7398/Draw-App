@@ -8,7 +8,7 @@ interface ValidationState {
 }
 
 interface UseFormValidationProps<T> {
-  schema: z.ZodSchema<T>;
+  schema: z.ZodObject<any> | z.ZodSchema<T>;
   initialValues: T;
   onSubmit: (values: T) => Promise<void>;
 }
@@ -30,9 +30,9 @@ export function useFormValidation<T extends Record<string, any>>({
   // Real-time validation
   const validateField = useCallback((fieldName: string, value: any) => {
     try {
-      // Create a partial schema for the specific field
-      const fieldSchema = z.object({ [fieldName]: schema.shape[fieldName] });
-      fieldSchema.parse({ [fieldName]: value });
+      // Validate the entire form with the updated field value
+      const testValues = { ...values, [fieldName]: value };
+      schema.parse(testValues);
       
       // Clear error for this field
       setValidation(prev => ({
@@ -47,7 +47,10 @@ export function useFormValidation<T extends Record<string, any>>({
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors = error.errors
-          .filter(err => err.path.includes(fieldName))
+          .filter(err => {
+            const path = err.path.join('.');
+            return path === fieldName || path.startsWith(fieldName + '.');
+          })
           .map(err => err.message);
         
         setValidation(prev => ({
@@ -60,7 +63,7 @@ export function useFormValidation<T extends Record<string, any>>({
       }
       return false;
     }
-  }, [schema]);
+  }, [schema, values]);
 
   // Validate entire form
   const validateForm = useCallback(() => {

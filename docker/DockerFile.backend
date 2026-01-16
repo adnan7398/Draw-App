@@ -1,0 +1,37 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN npm install -g pnpm@9.0.0
+
+# Copy workspace configuration files
+COPY pnpm-workspace.yaml ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+
+# Copy all packages (needed for workspace dependencies)
+COPY packages ./packages
+
+# Copy the specific backend app
+COPY apps/http-backned ./apps/http-backned
+
+# Install dependencies
+RUN pnpm install --no-frozen-lockfile
+
+# Generate Prisma Client (migrations should be run separately)
+WORKDIR /app/packages/db
+RUN pnpm prisma generate
+
+# Build the backend
+WORKDIR /app/apps/http-backned
+RUN pnpm run build
+
+# Set working directory back to app root
+WORKDIR /app
+
+# Expose the backend port
+EXPOSE 3002
+
+# Start the backend server
+CMD ["pnpm", "--filter", "http-backend", "start"]
