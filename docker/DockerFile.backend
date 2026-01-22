@@ -20,6 +20,6 @@ RUN pnpm run build
 
 WORKDIR /app
 
-EXPOSE 3002
+EXPOSE 3000
 
 CMD ["pnpm", "--filter", "http-backend", "start"]
