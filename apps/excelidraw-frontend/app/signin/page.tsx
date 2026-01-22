@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useFormValidation } from '@/hooks/useFormValidation';
 import { ValidatedInput } from '@/component/ValidatedInput';
 import { SigninSchema } from '@repo/common/types';
+import { Suspense } from "react";
 import axios from "axios";
 
 interface SigninForm {
@@ -15,10 +16,16 @@ interface SigninForm {
 }
 
 export default function SignInPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
+  )
+}
+function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const successMessage = searchParams.get('message');
-
   const handleSignin = async (values: SigninForm) => {
     try {
       const response = await axios.post(`${getBackendUrl()}/signin`, values);
