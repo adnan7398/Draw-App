@@ -1,14 +1,9 @@
 {
   "name": "@repo/backend-common",
   "version": "1.0.0",
-  "type": "module",
   "main": "index.js",
   "exports": {
-    "./config": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    }
+    "./config": "./dist/index.js"
   },
   "types": "./dist/index.d.ts",
   "scripts": {
