@@ -957,6 +957,6 @@ app.get("/api/challenges/categories", async (req, res) => {
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  // CI/CD test - harmless change to verify pipeline
+  // CI/CD pipeline test - verifying deployment workflow
 });
 
