@@ -23,6 +23,6 @@ jobs:
         with:
           context: .
           file: ./docker/DockerFile.backend
-          tags: draw-app/http-backend:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/http-backend:${{ github.sha }}
           push: true
         

@@ -25,6 +25,6 @@ jobs:
           file: ./docker/Dockerfile.frontend
           build-args: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
-          tags: draw-app/frontend:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/frontend:${{ github.sha }}
           push: true
         

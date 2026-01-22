@@ -22,6 +22,6 @@ jobs:
         with:
           context: .
           file: ./docker/Dockerfile.websocket
-          tags: draw-app/ws-backend:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/ws-backend:${{ github.sha }}
           push: true
         
