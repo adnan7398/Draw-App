@@ -22,7 +22,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: docker/DockerFile.backend
-          tags: ${{ secrets.DOCKER_USERNAME }}/http-backend:latest
+          file: ./docker/DockerFile.backend
+          tags: draw-app/http-backend:${{ github.sha }}
           push: true
         
