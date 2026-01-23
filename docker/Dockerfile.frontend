@@ -27,6 +27,10 @@ COPY --from=deps /app/apps/excelidraw-frontend ./apps/excelidraw-frontend
 # Reinstall to ensure workspace links are properly set up
 RUN pnpm install --no-frozen-lockfile
 
+# Build shared common package so '@repo/common/types' resolves to compiled JS
+WORKDIR /app/packages/common
+RUN pnpm run build
+
 WORKDIR /app/apps/excelidraw-frontend
 RUN pnpm run build
 
