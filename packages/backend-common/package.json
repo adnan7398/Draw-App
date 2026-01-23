@@ -2,12 +2,10 @@
   "name": "@repo/backend-common",
   "version": "1.0.0",
   "main": "index.js",
-  "exports": {
-    "./config": "./dist/index.js"
+  "exports":{
+    "./config":"./src/index.ts"
   },
-  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -b",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {

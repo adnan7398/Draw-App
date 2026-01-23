@@ -1,9 +1,3 @@
 {
     "extends":"@repo/typescript-config/base.json",
-    "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./dist",
-        "module": "CommonJS",
-        "moduleResolution": "node"
-    }
 }
