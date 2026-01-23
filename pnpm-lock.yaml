@@ -97,6 +97,15 @@ importers:
 
   apps/http-backned:
     dependencies:
+      '@repo/backend-common':
+        specifier: workspace:*
+        version: link:../../packages/backend-common
+      '@repo/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@repo/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@types/express':
         specifier: ^5.0.0
         version: 5.0.0
@@ -122,15 +131,6 @@ importers:
         specifier: ^8.18.0
         version: 8.18.0
     devDependencies:
-      '@repo/backend-common':
-        specifier: workspace:*
-        version: link:../../packages/backend-common
-      '@repo/common':
-        specifier: workspace:*
-        version: link:../../packages/common
-      '@repo/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
@@ -141,10 +141,11 @@ importers:
         specifier: ^4.20.5
         version: 4.20.5
 
-  apps/ml-backend: {}
-
   apps/ws-backend:
     dependencies:
+      '@repo/backend-common':
+        specifier: workspace:*
+        version: link:../../packages/backend-common
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -161,9 +162,6 @@ importers:
         specifier: ^8.18.0
         version: 8.18.0
     devDependencies:
-      '@repo/backend-common':
-        specifier: workspace:*
-        version: link:../../packages/backend-common
       '@repo/common':
         specifier: workspace:*
         version: link:../../packages/common
