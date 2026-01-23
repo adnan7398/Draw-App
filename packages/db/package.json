@@ -8,9 +8,6 @@
     "seed": "tsx seed-challenges.ts",
     "build": "tsc -b"
   },
-  "exports": {
-    "./client": "./dist/index.js"
-  },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*"
   },

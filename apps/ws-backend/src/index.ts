@@ -1,7 +1,7 @@
 import {WebSocketServer, WebSocket} from "ws";
 import jwt, { decode, JwtPayload }  from "jsonwebtoken";
 import {JWT_SECRET} from "@repo/backend-common/config"
-import {prismaClient} from "@repo/db/client"
+import {prismaClient} from "@repo/db"
 const wss  = new WebSocketServer({port:8081, host: '0.0.0.0'});
 
 // Add better error handling

@@ -2,7 +2,7 @@ import express from "express";
 import Jwt from "jsonwebtoken";
 import { JWT_SECRET } from "@repo/backend-common/config"
 import { CreateUserSchema, SigninSchema, CreateRoomSchema, AuthResponse, AUTH_ERROR_MESSAGES } from "@repo/common/types"
-import { prismaClient } from "@repo/db/client"
+import { prismaClient } from "@repo/db"
 import { parse } from "path";
 import { Middleware } from "./middleware";
 import cors from "cors";
