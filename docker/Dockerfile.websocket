@@ -17,8 +17,6 @@ RUN pnpm install --no-frozen-lockfile
 WORKDIR /app/packages/db
 RUN pnpm prisma generate
 
-RUN pnpm run build
-
 WORKDIR /app/packages/common
 RUN pnpm run build
 

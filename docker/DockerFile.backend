@@ -14,19 +14,12 @@ RUN pnpm install --no-frozen-lockfile
 WORKDIR /app/packages/db
 RUN pnpm prisma generate
 
-RUN pnpm run build
-
-WORKDIR /app/packages/common
-RUN pnpm run build
-
-WORKDIR /app/packages/backend-common
-RUN pnpm run build
 
 WORKDIR /app/apps/http-backned
 RUN pnpm run build
 
 WORKDIR /app
 
-EXPOSE 3000
+EXPOSE 3002
 
 CMD ["pnpm", "--filter", "http-backend", "start"]
