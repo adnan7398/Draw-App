@@ -1,19 +1,31 @@
-FROM node:20-alpine
-
-WORKDIR /app
- 
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl
 RUN npm install -g pnpm@9.0.0
+
+# ---------- deps ----------
+FROM base AS deps
+WORKDIR /app
 
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
-
 COPY packages ./packages
-
 COPY apps/ws-backend ./apps/ws-backend
 
 RUN pnpm install --no-frozen-lockfile
 
+# ---------- builder ----------
+FROM base AS builder
+WORKDIR /app
+
+COPY pnpm-workspace.yaml ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+COPY --from=deps /app/packages ./packages
+COPY --from=deps /app/apps/ws-backend ./apps/ws-backend
+COPY --from=deps /app/node_modules ./node_modules
+
+# Build shared packages first
 WORKDIR /app/packages/db
 RUN pnpm prisma generate
 RUN pnpm run build
@@ -24,11 +36,21 @@ RUN pnpm run build
 WORKDIR /app/packages/backend-common
 RUN pnpm run build
 
+# Build ws-backend
 WORKDIR /app/apps/ws-backend
 RUN pnpm run build
 
+# ---------- runner ----------
+FROM base AS runner
 WORKDIR /app
+ENV NODE_ENV=production
+
+COPY pnpm-workspace.yaml ./
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/ws-backend ./apps/ws-backend
+COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 8081
-
 CMD ["pnpm", "--filter", "ws-backend", "start"]
