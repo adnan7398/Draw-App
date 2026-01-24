@@ -1,12 +1,15 @@
 FROM node:20-alpine
 
 WORKDIR /app
+ 
 RUN npm install -g pnpm@9.0.0
+
 COPY pnpm-workspace.yaml ./
 COPY package.json ./
 COPY pnpm-lock.yaml ./
 
 COPY packages ./packages
+
 COPY apps/http-backned ./apps/http-backned
 
 RUN pnpm install --no-frozen-lockfile
@@ -26,6 +29,6 @@ RUN pnpm run build
 
 WORKDIR /app
 
-EXPOSE 3002
+EXPOSE 8081
 
-CMD ["pnpm", "--filter", "http-backend", "start"]
+CMD ["pnpm", "--filter", "http-backned", "start"]
