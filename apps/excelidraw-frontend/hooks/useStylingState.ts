@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { StylingState, GradientType, StrokePattern } from '@/component/types';
+import { StylingState, GradientType, StrokePattern, Shape } from '@/component/types';
 import { Game } from '@/draw/Game';
 
-export function useStylingState(game: Game | undefined) {
+export function useStylingState(game: Game | undefined, selectedShape: Shape | null) {
   const [stylingState, setStylingState] = useState<StylingState>({
     selectedColorType: 'stroke',
     fillColor: "transparent",
@@ -16,6 +16,21 @@ export function useStylingState(game: Game | undefined) {
     designColor: "#1E293B"
   });
 
+  // Sync state when selection changes
+  useEffect(() => {
+    if (selectedShape) {
+      setStylingState(prev => ({
+        ...prev,
+        fillColor: selectedShape.style?.fillColor || prev.fillColor,
+        strokeColor: selectedShape.style?.strokeColor || prev.strokeColor,
+        strokeWidth: selectedShape.style?.strokeWidth || prev.strokeWidth,
+        opacity: selectedShape.style?.opacity ?? prev.opacity,
+        strokeStyle: selectedShape.style?.strokeStyle.type || prev.strokeStyle,
+        textColor: selectedShape.type === 'text' ? (selectedShape.style?.textColor || (selectedShape as any).color || prev.textColor) : prev.textColor
+      }));
+    }
+  }, [selectedShape]);
+
   // Apply styling changes to game
   useEffect(() => {
     if (game) {
@@ -26,7 +41,7 @@ export function useStylingState(game: Game | undefined) {
       game.setStrokeStyle(stylingState.strokeStyle);
       game.setTextColor(stylingState.textColor);
       game.setDesignColor(stylingState.designColor);
-      
+
       if (stylingState.gradientType !== "none") {
         game.setGradient({
           type: stylingState.gradientType,
@@ -51,14 +66,14 @@ export function useStylingState(game: Game | undefined) {
 
   const setCurrentColor = (color: string) => {
     switch (stylingState.selectedColorType) {
-      case 'stroke': 
-        setStylingState(prev => ({ ...prev, strokeColor: color })); 
+      case 'stroke':
+        setStylingState(prev => ({ ...prev, strokeColor: color }));
         break;
-      case 'fill': 
-        setStylingState(prev => ({ ...prev, fillColor: color })); 
+      case 'fill':
+        setStylingState(prev => ({ ...prev, fillColor: color }));
         break;
-      case 'text': 
-        setStylingState(prev => ({ ...prev, textColor: color })); 
+      case 'text':
+        setStylingState(prev => ({ ...prev, textColor: color }));
         break;
     }
   };

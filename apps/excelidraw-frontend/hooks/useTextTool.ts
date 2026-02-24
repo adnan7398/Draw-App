@@ -9,83 +9,15 @@ export function useTextTool(game: Game | undefined, roomId: string) {
     textInput: ''
   });
 
-  // Add keyboard event listener for text typing
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (textToolState.isTyping && textToolState.currentTextShapeId && game) {
-        if (event.key === 'Enter') {
-          // Shift+Enter -> newline, Enter -> finish editing
-          if (event.shiftKey) {
-            event.preventDefault();
-            setTextToolState(prev => ({
-              ...prev,
-              textInput: prev.textInput + '\n'
-            }));
-          } else {
-            event.preventDefault();
-            setTextToolState(prev => ({
-              ...prev,
-              isTyping: false,
-              currentTextShapeId: null,
-              textInput: ''
-            }));
-            if (game) {
-              game.stopCursorBlink();
-            }
-          }
-        } else if (event.key === 'Escape') {
-          setTextToolState(prev => ({
-            ...prev,
-            isTyping: false,
-            currentTextShapeId: null,
-            textInput: ''
-          }));
-          if (game) {
-            game.stopCursorBlink();
-          }
-          // Remove the text shape if it's empty
-          if (textToolState.textInput.trim() === '') {
-            // Find and remove the empty text shape
-            const textShape = game.existingShapes.find(shape => 
-              shape.type === 'text' && shape.id === textToolState.currentTextShapeId
-            );
-            if (textShape) {
-              game.existingShapes = game.existingShapes.filter(s => s.id !== textToolState.currentTextShapeId);
-              game.clearCanvas();
-              game.socket.send(JSON.stringify({ 
-                type: "erase", 
-                shapeId: textToolState.currentTextShapeId, 
-                roomId: roomId 
-              }));
-            }
-          }
-        } else if (event.key === 'Backspace') {
-          setTextToolState(prev => ({
-            ...prev,
-            textInput: prev.textInput.slice(0, -1)
-          }));
-        } else if (event.key.length === 1) {
-          setTextToolState(prev => ({
-            ...prev,
-            textInput: prev.textInput + event.key
-          }));
-        }
-      }
-    };
-
-    if (textToolState.isTyping) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [textToolState.isTyping, textToolState.currentTextShapeId, textToolState.textInput, game, roomId]);
+  // Removed global keydown listener in favor of TextEditor overlay
 
   // Update text shape when typing
   useEffect(() => {
     if (textToolState.isTyping && textToolState.currentTextShapeId && game) {
-      const textShape = game.existingShapes.find(shape => 
+      const textShape = game.existingShapes.find(shape =>
         shape.type === 'text' && shape.id === textToolState.currentTextShapeId
       ) as any;
-      
+
       if (textShape) {
         textShape.text = textToolState.textInput;
         game.clearCanvas();
@@ -103,15 +35,16 @@ export function useTextTool(game: Game | undefined, roomId: string) {
   useEffect(() => {
     const handleTextEdit = (event: CustomEvent) => {
       const { shapeId, text } = event.detail;
+      const shape = game?.existingShapes.find(s => s.id === shapeId) || null;
+
       setTextToolState(prev => ({
         ...prev,
         currentTextShapeId: shapeId,
         textInput: text || '',
-        isTyping: true
+        isTyping: true,
+        editingShape: shape
       }));
-      if (game) {
-        game.startCursorBlink();
-      }
+      // We don't need cursor blink from game anymore
     };
 
     const handleColorPicked = (event: CustomEvent) => {
@@ -154,9 +87,17 @@ export function useTextTool(game: Game | undefined, roomId: string) {
     }
   };
 
+  const updateTextInput = (text: string) => {
+    setTextToolState(prev => ({
+      ...prev,
+      textInput: text
+    }));
+  };
+
   return {
     textToolState,
     startTextEditing,
-    stopTextEditing
+    stopTextEditing,
+    updateTextInput
   };
 }

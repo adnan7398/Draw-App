@@ -1,1 +1,1 @@
-{"root":["./seed-challenges.ts","./src/index.ts"],"errors":true,"version":"5.7.3"}
+{"root":["./seed-challenges.d.ts","./src/index.ts","./src/seed-challenges.ts"],"errors":true,"version":"5.7.3"}

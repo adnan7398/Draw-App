@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCanvasState } from "@/hooks/useCanvasState";
 import { useStylingState } from "@/hooks/useStylingState";
 import { useAITools } from "@/hooks/useAITools";
 import { useTextTool } from "@/hooks/useTextTool";
-import { Toolbar } from "./Toolbar";
-import { ColorPanel } from "./ColorPanel";
+import { FloatingToolbar } from "./FloatingToolbar";
+import { PropertyPanel } from "./PropertyPanel";
+import { TextEditor } from "./TextEditor";
 import { ActionButtons } from "./ActionButtons";
 import { StatusIndicators } from "./StatusIndicators";
+import { useWebRTC } from "@/hooks/useWebRTC";
+import { VideoGrid } from "@/component/video/VideoGrid";
 import { AIPanel } from "./AIPanel";
 import { QuickTips } from "./QuickTips";
 import { WelcomeModal } from "./WelcomeModal";
@@ -41,8 +45,10 @@ export function CanvasRefactored({
     setCurrentColor,
     getCurrentColorPalette,
     setSelectedColorType,
-    setStrokeWidth
-  } = useStylingState(game);
+    setStrokeWidth,
+    setOpacity,
+    setStrokeStyle
+  } = useStylingState(game, canvasState.selectedShape);
 
   const {
     aiToolsState,
@@ -54,10 +60,24 @@ export function CanvasRefactored({
     setAiToolsState
   } = useAITools(canvasRef, roomId);
 
-  const { textToolState } = useTextTool(game, roomId);
+  const { textToolState, updateTextInput, stopTextEditing } = useTextTool(game, roomId);
+
+  // WebRTC Interface
+  const {
+    localStream,
+    peers,
+    isMuted,
+    isVideoEnabled,
+    toggleMute,
+    toggleVideo
+  } = useWebRTC(roomId, socket, {
+    id: currentUser?.userId || 'anon',
+    name: currentUser?.userName || 'Anonymous'
+  });
 
   // Local UI state
   const [showColorPopup, setShowColorPopup] = useState(false);
+  const [forceShowPanel, setForceShowPanel] = useState(false);
   const [showConnectedUsers, setShowConnectedUsers] = useState(true);
 
   // Handle undo/redo
@@ -147,23 +167,65 @@ export function CanvasRefactored({
           }}
         />
 
+        {/* Text Editor Overlay */}
+        {textToolState.isTyping && textToolState.editingShape && (
+          <TextEditor
+            shape={textToolState.editingShape}
+            text={textToolState.textInput}
+            game={game}
+            onChange={updateTextInput}
+            onBlur={stopTextEditing}
+          />
+        )}
+
+
+
+        {/* Video Conferencing Overlay */}
+        <VideoGrid
+          localStream={localStream}
+          peers={peers}
+          isMuted={isMuted}
+          isVideoEnabled={isVideoEnabled}
+          currentUserName={currentUser?.name || 'You'}
+          onToggleMute={toggleMute}
+          onToggleVideo={toggleVideo}
+        />
+
         {/* Toolbar */}
-        <Toolbar
+        <FloatingToolbar
           selectedTool={canvasState.selectedTool}
           onToolSelect={setSelectedTool}
         />
 
-        {/* Color Panel */}
-        <ColorPanel
-          stylingState={stylingState}
-          showColorPopup={showColorPopup}
-          onShowColorPopup={setShowColorPopup}
-          onColorChange={setCurrentColor}
-          onColorTypeChange={setSelectedColorType}
-          onStrokeWidthChange={setStrokeWidth}
-          getCurrentColor={getCurrentColor}
-          getCurrentColorPalette={getCurrentColorPalette}
-        />
+        {/* Styles Toggle Button (when panel is hidden) */}
+        {!canvasState.selectedShape && !showColorPopup && (
+          <div className="absolute top-4 right-4 z-40">
+            <button
+              onClick={() => setShowColorPopup(true)} // Reusing showColorPopup state as a proxy for "Force Show Panel" isn't quite right, let's use a new state.
+              className="bg-white p-2 rounded-xl shadow-lg border border-gray-200 hover:bg-gray-50 text-gray-700 transition-all font-medium flex items-center gap-2"
+            >
+              <Palette size={20} />
+              <span className="text-sm">Styles</span>
+            </button>
+          </div>
+        )}
+
+        {/* Property Panel */}
+        {(canvasState.selectedShape || showColorPopup) && (
+          <PropertyPanel
+            stylingState={stylingState}
+            showColorPopup={showColorPopup} // This prop controls the *expanded* color picker, not the panel itself.
+            onShowColorPopup={setShowColorPopup}
+            onColorChange={setCurrentColor}
+            onColorTypeChange={setSelectedColorType}
+            onStrokeWidthChange={setStrokeWidth}
+            onOpacityChange={setOpacity}
+            onStrokeStyleChange={setStrokeStyle}
+            getCurrentColor={getCurrentColor}
+            getCurrentColorPalette={getCurrentColorPalette}
+            onClose={!canvasState.selectedShape ? () => setShowColorPopup(false) : undefined}
+          />
+        )}
 
         {/* Action Buttons */}
         <ActionButtons
@@ -215,7 +277,7 @@ export function CanvasRefactored({
           onClose={() => setShowWelcome(false)}
         />
       </div>
-      
+
       {/* Drawing Indicator */}
       <DrawingIndicator roomId={roomId} socket={socket} />
     </div>

@@ -42,65 +42,65 @@ export interface ShapeStyle {
 
 export type Shape =
   | {
-      id: string;
-      type: "rect";
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "rect";
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "ellipse";
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "ellipse";
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "triangle";
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "triangle";
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "circle";
-      centerX: number;
-      centerY: number;
-      radius: number;
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "circle";
+    centerX: number;
+    centerY: number;
+    radius: number;
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "line";
-      startX: number;
-      startY: number;
-      endX: number;
-      endY: number;
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "line";
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "path";
-      points: { x: number; y: number }[];
-      style?: ShapeStyle;
-    }
+    id: string;
+    type: "path";
+    points: { x: number; y: number }[];
+    style?: ShapeStyle;
+  }
   | {
-      id: string;
-      type: "text";
-      x: number;
-      y: number;
-      text: string;
-      fontSize: number;
-      color: string;
-      style?: ShapeStyle;
-    };
+    id: string;
+    type: "text";
+    x: number;
+    y: number;
+    text: string;
+    fontSize: number;
+    color: string;
+    style?: ShapeStyle;
+  };
 
 // AI Analysis types
 export interface AIAnalysisResult {
@@ -128,6 +128,7 @@ export interface CanvasState {
   showQuickTips: boolean;
   canvasSize: { width: number; height: number };
   isPanning: boolean;
+  selectedShape: Shape | null;
 }
 
 // AI Tools State types
@@ -151,6 +152,7 @@ export interface TextToolState {
   isTyping: boolean;
   currentTextShapeId: string | null;
   textInput: string;
+  editingShape?: Shape | null;
 }
 
 // UI State types
