@@ -186,7 +186,7 @@ export function CanvasRefactored({
           peers={peers}
           isMuted={isMuted}
           isVideoEnabled={isVideoEnabled}
-          currentUserName={currentUser?.name || 'You'}
+          currentUserName={currentUser?.userName || 'You'}
           onToggleMute={toggleMute}
           onToggleVideo={toggleVideo}
         />
