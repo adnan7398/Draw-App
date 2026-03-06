@@ -1,0 +1,72 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=drawapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - draw-app-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: ${DOCKER_USERNAME}/frontend:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      - http-backend
+      - ws-backend
+    networks:
+      - draw-app-network
+    restart: always
+
+  http-backend:
+    image: ${DOCKER_USERNAME}/http-backend:latest
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/drawapp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - draw-app-network
+    restart: always
+
+  ws-backend:
+    image: ${DOCKER_USERNAME}/ws-backend:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - NODE_ENV=production
+      - PORT=8081
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/drawapp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - draw-app-network
+    restart: always
+
+networks:
+  draw-app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
